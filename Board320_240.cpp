@@ -9,9 +9,6 @@
 #include "Board320_240.h"
 #include <ArduinoJson.h>
 #include "SIM800L.h"
-#include "Roboto_Thin_24.h"
-#include "Orbitron_Light_24.h"
-#include "Orbitron_Light_32.h"
 
 RTC_DATA_ATTR unsigned int bootCount = 0;
 
