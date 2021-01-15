@@ -11,8 +11,24 @@
 #define SMOOTH_FONT
 #define GFXFF 1  // TFT FOnts
 
+//These enumerate the text plotting alignment (reference datum point)
+#define TL_DATUM 0 // Top left (default)
+#define TC_DATUM 1 // Top centre
+#define TR_DATUM 2 // Top right
+#define ML_DATUM 3 // Middle left
+#define CL_DATUM 3 // Centre left, same as above
+#define MC_DATUM 4 // Middle centre
+#define CC_DATUM 4 // Centre centre, same as above
+#define MR_DATUM 5 // Middle right
+#define CR_DATUM 5 // Centre right, same as above
+#define BL_DATUM 6 // Bottom left
+#define BC_DATUM 7 // Bottom centre
+#define BR_DATUM 8 // Bottom right
+#define L_BASELINE  9 // Left character baseline (Line the 'A' character would sit on)
+#define C_BASELINE 10 // Centre character baseline
+#define R_BASELINE 11 // Right character baseline
+
 //
-#include <TFT_eSPI.h>
 #include <TinyGPS++.h>
 #include "BoardInterface.h"
 #include <SD.h>
@@ -22,9 +38,6 @@
 class Board320_240 : public BoardInterface {
 
   protected:
-    // TFT, SD SPI
-    TFT_eSPI tft = TFT_eSPI();
-    TFT_eSprite spr = TFT_eSprite(&tft);
     HardwareSerial* gpsHwUart = NULL;
     HardwareSerial* gprsHwUart = NULL;
     SIM800L* sim800l;
@@ -64,7 +77,6 @@ class Board320_240 : public BoardInterface {
     bool sim800lSendData();
     // Basic GUI
     void setBrightness(byte lcdBrightnessPerc) override;
-    void displayMessage(const char* row1, const char* row2) override;
     void redrawScreen() override;
     // Custom screens
     void drawBigCell(int32_t x, int32_t y, int32_t w, int32_t h, const char* text, const char* desc, uint16_t bgColor, uint16_t fgColor);

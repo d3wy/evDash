@@ -20,8 +20,9 @@
 ////////////////////////////////////////////////////////////
 
 // Boards
-//#define BOARD_TTGO_T4
-#define BOARD_M5STACK_CORE
+#define BOARD_TTGO_T4
+//#define BOARD_M5STACK_CORE
+//#define BOARD_M5STACK_CORE2
 
 ////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////
@@ -33,8 +34,11 @@
 #include "BoardTtgoT4v13.h"
 #endif // BOARD_TTGO_T4
 #ifdef BOARD_M5STACK_CORE
-#include "BoardM5stackCore.h"
+//#include "BoardM5stackCore.h"
 #endif // BOARD_M5STACK_CORE
+#ifdef BOARD_M5STACK_CORE2
+//#include "BoardM5stackCore2.h"
+#endif // BOARD_M5STACK_CORE2
 
 #include "config.h"
 #include "LiveData.h"
@@ -78,6 +82,9 @@ void setup(void) {
 #ifdef BOARD_M5STACK_CORE
   board = new BoardM5stackCore();
 #endif // BOARD_M5STACK_CORE
+#ifdef BOARD_M5STACK_CORE2
+  board = new BoardM5stackCore2();
+#endif // BOARD_M5STACK_CORE2
   board->setLiveData(liveData);
   board->loadSettings();
   board->initBoard();

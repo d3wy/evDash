@@ -1,7 +1,6 @@
 //#include <SD.h>
 #include <FS.h>
 #include <analogWrite.h>
-#include <TFT_eSPI.h>
 //#include <WiFi.h>
 //#include <WiFiClient.h>
 #include <sys/time.h>
@@ -10,6 +9,9 @@
 #include "Board320_240.h"
 #include <ArduinoJson.h>
 #include "SIM800L.h"
+#include "Roboto_Thin_24.h"
+#include "Orbitron_Light_24.h"
+#include "Orbitron_Light_32.h"
 
 RTC_DATA_ATTR unsigned int bootCount = 0;
 
@@ -57,19 +59,7 @@ void Board320_240::afterSetup() {
 
   // Init display
   syslog->println("Init TFT display");
-  tft.begin();
-  tft.invertDisplay(invertDisplay);
-  tft.setRotation(liveData->settings.displayRotation);
-  setBrightness((liveData->settings.lcdBrightness == 0) ? 100 : liveData->settings.lcdBrightness);
-  tft.fillScreen(TFT_BLACK);
-
-  bool psramUsed = false; // 320x240 16bpp sprites requires psram
-#if defined (ESP32) && defined (CONFIG_SPIRAM_SUPPORT)
-  if (psramFound())
-    psramUsed = true;
-#endif
-  spr.setColorDepth((psramUsed) ? 16 : 8);
-  spr.createSprite(320, 240);
+  initDisplay();
 
   // Show test data on right button during boot device
   liveData->params.displayScreen = liveData->settings.defaultScreen;
@@ -254,22 +244,7 @@ void Board320_240::afterSleep() {
 */
 void Board320_240::setBrightness(byte lcdBrightnessPerc) {
 
-  analogWrite(TFT_BL, lcdBrightnessPerc);
-}
-
-/**
-   Clear screen a display two lines message
-*/
-void Board320_240::displayMessage(const char* row1, const char* row2) {
-
-  // Must draw directly, withou sprite (due to psramFound check)
-  tft.fillScreen(TFT_BLACK);
-  tft.setTextDatum(ML_DATUM);
-  tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.setFreeFont(&Roboto_Thin_24);
-  tft.setTextDatum(BL_DATUM);
-  tft.drawString(row1, 0, 240 / 2, GFXFF);
-  tft.drawString(row2, 0, (240 / 2) + 30, GFXFF);
+  analogWrite(pinBrightness, lcdBrightnessPerc);
 }
 
 /**
@@ -282,13 +257,13 @@ void Board320_240::drawBigCell(int32_t x, int32_t y, int32_t w, int32_t h, const
   posx = (x * 80) + 4;
   posy = (y * 60) + 1;
 
-  spr.fillRect(x * 80, y * 60, ((w) * 80) - 1, ((h) * 60) - 1,  bgColor);
-  spr.drawFastVLine(((x + w) * 80) - 1, ((y) * 60) - 1, h * 60, TFT_BLACK);
-  spr.drawFastHLine(((x) * 80) - 1, ((y + h) * 60) - 1, w * 80, TFT_BLACK);
-  spr.setTextDatum(TL_DATUM); // Topleft
-  spr.setTextColor(TFT_SILVER, bgColor); // Bk, fg color
-  spr.setTextSize(1); // Size for small 5x7 font
-  spr.drawString(desc, posx, posy, 2);
+  sprFillRect(x * 80, y * 60, ((w) * 80) - 1, ((h) * 60) - 1,  bgColor);
+  sprDrawFastVLine(((x + w) * 80) - 1, ((y) * 60) - 1, h * 60, TFT_BLACK);
+  sprDrawFastHLine(((x) * 80) - 1, ((y + h) * 60) - 1, w * 80, TFT_BLACK);
+  sprSetTextDatum(TL_DATUM); // Topleft
+  sprSetTextColor(TFT_SILVER, bgColor); // Bk, fg color
+  sprSetTextSize(1); // Size for small 5x7 font
+  sprDrawString(desc, posx, posy, 2);
 
   // Big 2x2 cell in the middle of screen
   if (w == 2 && h == 2) {
@@ -297,30 +272,30 @@ void Board320_240::drawBigCell(int32_t x, int32_t y, int32_t w, int32_t h, const
     posx = (x * 80) + 5;
     posy = ((y + h) * 60) - 32;
     sprintf(tmpStr3, "-%01.01f", liveData->params.cumulativeEnergyDischargedKWh - liveData->params.cumulativeEnergyDischargedKWhStart);
-    spr.setFreeFont(&Roboto_Thin_24);
-    spr.setTextDatum(TL_DATUM);
-    spr.drawString(tmpStr3, posx, posy, GFXFF);
+    sprSetFreeFont(&Roboto_Thin_24);
+    sprSetTextDatum(TL_DATUM);
+    sprDrawString(tmpStr3, posx, posy, GFXFF);
 
     posx = ((x + w) * 80) - 8;
     sprintf(tmpStr3, "+%01.01f", liveData->params.cumulativeEnergyChargedKWh - liveData->params.cumulativeEnergyChargedKWhStart);
-    spr.setTextDatum(TR_DATUM);
-    spr.drawString(tmpStr3, posx, posy, GFXFF);
+    sprSetTextDatum(TR_DATUM);
+    sprDrawString(tmpStr3, posx, posy, GFXFF);
 
     // Main number - kwh on roads, amps on charges
     posy = (y * 60) + 24;
-    spr.setTextColor(fgColor, bgColor);
-    spr.setFreeFont(&Orbitron_Light_32);
-    spr.drawString(text, posx, posy, 7);
+    sprSetTextColor(fgColor, bgColor);
+    sprSetFreeFont(&Orbitron_Light_32);
+    sprDrawString(text, posx, posy, 7);
 
   } else {
 
     // All others 1x1 cells
-    spr.setTextDatum(MC_DATUM);
-    spr.setTextColor(fgColor, bgColor);
-    spr.setFreeFont(&Orbitron_Light_24);
+    sprSetTextDatum(MC_DATUM);
+    sprSetTextColor(fgColor, bgColor);
+    sprSetFreeFont(&Orbitron_Light_24);
     posx = (x * 80) + (w * 80 / 2) - 3;
     posy = (y * 60) + (h * 60 / 2) + 4;
-    spr.drawString(text, posx, posy, (w == 2 ? 7 : GFXFF));
+    sprDrawString(text, posx, posy, (w == 2 ? 7 : GFXFF));
   }
 }
 
@@ -334,18 +309,18 @@ void Board320_240::drawSmallCell(int32_t x, int32_t y, int32_t w, int32_t h, con
   posx = (x * 80) + 4;
   posy = (y * 32) + 1;
 
-  spr.fillRect(x * 80, y * 32, ((w) * 80), ((h) * 32),  bgColor);
-  spr.drawFastVLine(((x + w) * 80) - 1, ((y) * 32) - 1, h * 32, TFT_BLACK);
-  spr.drawFastHLine(((x) * 80) - 1, ((y + h) * 32) - 1, w * 80, TFT_BLACK);
-  spr.setTextDatum(TL_DATUM); // Topleft
-  spr.setTextColor(TFT_SILVER, bgColor); // Bk, fg bgColor
-  spr.setTextSize(1); // Size for small 5x7 font
-  spr.drawString(desc, posx, posy, 2);
+  sprFillRect(x * 80, y * 32, ((w) * 80), ((h) * 32),  bgColor);
+  sprDrawFastVLine(((x + w) * 80) - 1, ((y) * 32) - 1, h * 32, TFT_BLACK);
+  sprDrawFastHLine(((x) * 80) - 1, ((y + h) * 32) - 1, w * 80, TFT_BLACK);
+  sprSetTextDatum(TL_DATUM); // Topleft
+  sprSetTextColor(TFT_SILVER, bgColor); // Bk, fg bgColor
+  sprSetTextSize(1); // Size for small 5x7 font
+  sprDrawString(desc, posx, posy, 2);
 
-  spr.setTextDatum(TC_DATUM);
-  spr.setTextColor(fgColor, bgColor);
+  sprSetTextDatum(TC_DATUM);
+  sprSetTextColor(fgColor, bgColor);
   posx = (x * 80) + (w * 80 / 2) - 3;
-  spr.drawString(text, posx, posy + 14, 2);
+  sprDrawString(text, posx, posy + 14, 2);
 }
 
 /**
@@ -356,25 +331,25 @@ void Board320_240::showTires(int32_t x, int32_t y, int32_t w, int32_t h, const c
 
   int32_t posx, posy;
 
-  spr.fillRect(x * 80, y * 60, ((w) * 80) - 1, ((h) * 60) - 1,  color);
-  spr.drawFastVLine(((x + w) * 80) - 1, ((y) * 60) - 1, h * 60, TFT_BLACK);
-  spr.drawFastHLine(((x) * 80) - 1, ((y + h) * 60) - 1, w * 80, TFT_BLACK);
+  sprFillRect(x * 80, y * 60, ((w) * 80) - 1, ((h) * 60) - 1,  color);
+  sprDrawFastVLine(((x + w) * 80) - 1, ((y) * 60) - 1, h * 60, TFT_BLACK);
+  sprDrawFastHLine(((x) * 80) - 1, ((y + h) * 60) - 1, w * 80, TFT_BLACK);
 
-  spr.setTextDatum(TL_DATUM);
-  spr.setTextColor(TFT_SILVER, color);
-  spr.setTextSize(1);
+  sprSetTextDatum(TL_DATUM);
+  sprSetTextColor(TFT_SILVER, color);
+  sprSetTextSize(1);
   posx = (x * 80) + 4;
   posy = (y * 60) + 0;
-  spr.drawString(topleft, posx, posy, 2);
+  sprDrawString(topleft, posx, posy, 2);
   posy = (y * 60) + 14;
-  spr.drawString(bottomleft, posx, posy, 2);
+  sprDrawString(bottomleft, posx, posy, 2);
 
-  spr.setTextDatum(TR_DATUM);
+  sprSetTextDatum(TR_DATUM);
   posx = ((x + w) * 80) - 4;
   posy = (y * 60) + 0;
-  spr.drawString(topright, posx, posy, 2);
+  sprDrawString(topright, posx, posy, 2);
   posy = (y * 60) + 14;
-  spr.drawString(bottomright, posx, posy, 2);
+  sprDrawString(bottomright, posx, posy, 2);
 }
 
 /**
@@ -397,13 +372,13 @@ void Board320_240::drawSceneMain() {
 
   // Added later - kwh total in tires box
   // TODO: refactoring
-  spr.setTextDatum(TL_DATUM);
-  spr.setTextColor(TFT_GREEN, TFT_BLACK);
+  sprSetTextDatum(TL_DATUM);
+  sprSetTextColor(TFT_GREEN, TFT_BLACK);
   sprintf(tmpStr1, "C: %01.01f +%01.01fkWh", liveData->params.cumulativeEnergyChargedKWh, liveData->params.cumulativeEnergyChargedKWh - liveData->params.cumulativeEnergyChargedKWhStart);
-  spr.drawString(tmpStr1, (1 * 80) + 4, (0 * 60) + 30, 2);
-  spr.setTextColor(TFT_YELLOW, TFT_BLACK);
+  sprDrawString(tmpStr1, (1 * 80) + 4, (0 * 60) + 30, 2);
+  sprSetTextColor(TFT_YELLOW, TFT_BLACK);
   sprintf(tmpStr1, "D: %01.01f -%01.01fkWh", liveData->params.cumulativeEnergyDischargedKWh, liveData->params.cumulativeEnergyDischargedKWh - liveData->params.cumulativeEnergyDischargedKWhStart);
-  spr.drawString(tmpStr1, (1 * 80) + 4, (0 * 60) + 44, 2);
+  sprDrawString(tmpStr1, (1 * 80) + 4, (0 * 60) + 44, 2);
 
   // batPowerKwh100 on roads, else batPowerAmp
   if (liveData->params.speedKmh > 20) {
@@ -472,78 +447,78 @@ void Board320_240::drawSceneSpeed() {
 
   int32_t posx, posy;
 
-  spr.fillRect(0, 36, 200, 160, TFT_DARKRED);
+  sprFillRect(0, 36, 200, 160, TFT_DARKRED);
 
   posx = 320 / 2;
   posy = 40;
-  spr.setTextDatum(TR_DATUM);
-  spr.setTextColor(TFT_WHITE, TFT_DARKRED);
-  spr.setTextSize(2); // Size for small 5cix7 font
+  sprSetTextDatum(TR_DATUM);
+  sprSetTextColor(TFT_WHITE, TFT_DARKRED);
+  sprSetTextSize(2); // Size for small 5cix7 font
   sprintf(tmpStr3, "0");
   if (liveData->params.speedKmh > 10)
     sprintf(tmpStr3, "%01.00f", liveData->km2distance(liveData->params.speedKmh));
-  spr.drawString(tmpStr3, 200, posy, 7);
+  sprDrawString(tmpStr3, 200, posy, 7);
 
   posy = 145;
-  spr.setTextDatum(TR_DATUM); // Top center
-  spr.setTextSize(1);
+  sprSetTextDatum(TR_DATUM); // Top center
+  sprSetTextSize(1);
   if (liveData->params.speedKmh > 25 && liveData->params.batPowerKw < 0) {
     sprintf(tmpStr3, "%01.01f", liveData->km2distance(liveData->params.batPowerKwh100));
   } else {
     sprintf(tmpStr3, "%01.01f", liveData->params.batPowerKw);
   }
-  spr.drawString(tmpStr3, 200, posy, 7);
+  sprDrawString(tmpStr3, 200, posy, 7);
 
   // Bottom 2 numbers with charged/discharged kWh from start
-  spr.setFreeFont(&Roboto_Thin_24);
-  spr.setTextColor(TFT_WHITE, TFT_BLACK);
+  sprSetFreeFont(&Roboto_Thin_24);
+  sprSetTextColor(TFT_WHITE, TFT_BLACK);
   posx = 5;
   posy = 5;
-  spr.setTextDatum(TL_DATUM);
+  sprSetTextDatum(TL_DATUM);
   sprintf(tmpStr3, ((liveData->settings.distanceUnit == 'k') ? "%01.00fkm" : "%01.00fmi"), liveData->km2distance(liveData->params.odoKm));
-  spr.drawString(tmpStr3, posx, posy, GFXFF);
-  spr.setTextDatum(TR_DATUM);
+  sprDrawString(tmpStr3, posx, posy, GFXFF);
+  sprSetTextDatum(TR_DATUM);
   if (liveData->params.batteryManagementMode != BAT_MAN_MODE_NOT_IMPLEMENTED)  {
-    spr.drawString(liveData->getBatteryManagementModeStr(liveData->params.batteryManagementMode), 320 - posx, posy, GFXFF);
+    sprDrawString(liveData->getBatteryManagementModeStr(liveData->params.batteryManagementMode), 320 - posx, posy, GFXFF);
   } else 
   if (liveData->params.motorRpm > -1) {
     sprintf(tmpStr3, "%01.00frpm" , liveData->params.motorRpm);
-    spr.drawString(tmpStr3, 320 - posx, posy, GFXFF);
+    sprDrawString(tmpStr3, 320 - posx, posy, GFXFF);
   }
 
   // Bottom info
   // Cummulative regen/power
   posy = 240 - 5;
   sprintf(tmpStr3, "-%01.01f", liveData->params.cumulativeEnergyDischargedKWh - liveData->params.cumulativeEnergyDischargedKWhStart);
-  spr.setTextDatum(BL_DATUM);
-  spr.drawString(tmpStr3, posx, posy, GFXFF);
+  sprSetTextDatum(BL_DATUM);
+  sprDrawString(tmpStr3, posx, posy, GFXFF);
   posx = 320 - 5;
   sprintf(tmpStr3, "+%01.01f", liveData->params.cumulativeEnergyChargedKWh - liveData->params.cumulativeEnergyChargedKWhStart);
-  spr.setTextDatum(BR_DATUM);
-  spr.drawString(tmpStr3, posx, posy, GFXFF);
+  sprSetTextDatum(BR_DATUM);
+  sprDrawString(tmpStr3, posx, posy, GFXFF);
   // Bat.power
   posx = 320 / 2;
   sprintf(tmpStr3, "%01.01fkw", liveData->params.batPowerKw);
-  spr.setTextDatum(BC_DATUM);
-  spr.drawString(tmpStr3, posx, posy, GFXFF);
+  sprSetTextDatum(BC_DATUM);
+  sprDrawString(tmpStr3, posx, posy, GFXFF);
 
   // RIGHT INFO
   // Battery "cold gate" detection - red < 15C (43KW limit), <25 (blue - 55kW limit), green all ok
-  spr.fillCircle(290, 60, 25, (liveData->params.batTempC >= 15) ? ((liveData->params.batTempC >= 25) ? TFT_DARKGREEN2 : TFT_BLUE) : TFT_RED);
-  spr.setTextColor(TFT_WHITE, (liveData->params.batTempC >= 15) ? ((liveData->params.batTempC >= 25) ? TFT_DARKGREEN2 : TFT_BLUE) : TFT_RED);
-  spr.setFreeFont(&Roboto_Thin_24);
-  spr.setTextDatum(MC_DATUM);
+  sprFillCircle(290, 60, 25, (liveData->params.batTempC >= 15) ? ((liveData->params.batTempC >= 25) ? TFT_DARKGREEN2 : TFT_BLUE) : TFT_RED);
+  sprSetTextColor(TFT_WHITE, (liveData->params.batTempC >= 15) ? ((liveData->params.batTempC >= 25) ? TFT_DARKGREEN2 : TFT_BLUE) : TFT_RED);
+  sprSetFreeFont(&Roboto_Thin_24);
+  sprSetTextDatum(MC_DATUM);
   sprintf(tmpStr3, "%01.00f", liveData->celsius2temperature(liveData->params.batTempC));
-  spr.drawString(tmpStr3, 290, 60, GFXFF);
+  sprDrawString(tmpStr3, 290, 60, GFXFF);
   // Brake lights
-  spr.fillRect(210, 40, 40, 40, (liveData->params.brakeLights) ? TFT_RED : TFT_BLACK);
+  sprFillRect(210, 40, 40, 40, (liveData->params.brakeLights) ? TFT_RED : TFT_BLACK);
 
   // Soc%, bat.kWh
-  spr.setFreeFont(&Orbitron_Light_32);
-  spr.setTextColor(TFT_WHITE, TFT_BLACK);
-  spr.setTextDatum(TR_DATUM);
+  sprSetFreeFont(&Orbitron_Light_32);
+  sprSetTextColor(TFT_WHITE, TFT_BLACK);
+  sprSetTextDatum(TR_DATUM);
   sprintf(tmpStr3, "%01.00f%%", liveData->params.socPerc);
-  spr.drawString(tmpStr3, 320, 94, GFXFF);
+  sprDrawString(tmpStr3, 320, 94, GFXFF);
   if (liveData->params.socPerc > 0) {
     float capacity = liveData->params.batteryTotalAvailableKWh * (liveData->params.socPerc / 100);
     // calibration for Niro/Kona, real available capacity is ~66.5kWh, 0-10% ~6.2kWh, 90-100% ~7.2kWh
@@ -551,8 +526,8 @@ void Board320_240::drawSceneSpeed() {
       capacity = (liveData->params.socPerc * 0.615) * (1 + (liveData->params.socPerc * 0.0008));
     }
     sprintf(tmpStr3, "%01.01f", capacity);
-    spr.drawString(tmpStr3, 320, 129, GFXFF);
-    spr.drawString("kWh", 320, 164, GFXFF);
+    sprDrawString(tmpStr3, 320, 129, GFXFF);
+    sprDrawString("kWh", 320, 164, GFXFF);
   }
 }
 
@@ -564,25 +539,25 @@ void Board320_240::drawSceneHud() {
     setBrightness(100);
     
      // Change rotation to vertical & mirror
-    if (tft.getRotation() != 7) {
-      tft.setRotation(7);
-      tft.fillScreen(TFT_BLACK);
+    if (tftGetRotation() != 7) {
+      tftSetRotation(7);
+      tftFillScreen(TFT_BLACK);
     }
 
     if (liveData->commConnected && firstReload < 3) {
-      tft.fillScreen(TFT_BLACK);
+      tftFillScreen(TFT_BLACK);
       firstReload++;
     }
 
-    tft.setTextDatum(TR_DATUM); // top-right alignment
-    tft.setTextColor(TFT_WHITE, TFT_BLACK); // foreground, background text color
+    tftSetTextDatum(TR_DATUM); // top-right alignment
+    tftSetTextColor(TFT_WHITE, TFT_BLACK); // foreground, background text color
 
     // Draw speed
-    tft.setTextSize(3);
+    tftSetTextSize(3);
     sprintf(tmpStr3, "0");
     if (liveData->params.speedKmh > 10) {
       if (liveData->params.speedKmh != lastSpeedKmh) {
-        tft.fillRect(0, 210, 320, 30, TFT_BLACK);
+        tftFillRect(0, 210, 320, 30, TFT_BLACK);
         sprintf(tmpStr3, "%01.00f", liveData->km2distance(liveData->params.speedKmh));
         lastSpeedKmh = liveData->params.speedKmh;
       }
@@ -591,35 +566,35 @@ void Board320_240::drawSceneHud() {
     {
       sprintf(tmpStr3, "0");
     }
-    tft.drawString(tmpStr3, 320, 0, 7);
+    tftDrawString(tmpStr3, 320, 0, 7);
 
     // Draw power kWh/100km (>25kmh) else kW
-    tft.setTextSize(1);
+    tftSetTextSize(1);
     if (liveData->params.speedKmh > 25 && liveData->params.batPowerKw < 0) {
       sprintf(tmpStr3, "%01.00f", liveData->km2distance(liveData->params.batPowerKwh100));
     }
     else {
       sprintf(tmpStr3, "%01.01f", liveData->params.batPowerKw);
     }
-    tft.fillRect(181, 149, 150, 50, TFT_BLACK);
-    tft.drawString(tmpStr3, 320, 150, 7);
+    tftFillRect(181, 149, 150, 50, TFT_BLACK);
+    tftDrawString(tmpStr3, 320, 150, 7);
     
     // Draw soc%
     sprintf(tmpStr3, "%01.00f%", liveData->params.socPerc);
-    tft.drawString(tmpStr3, 160 , 150, 7);
+    tftDrawString(tmpStr3, 160 , 150, 7);
 
     // Cold gate battery
     batColor = (liveData->params.batTempC >= 15) ? ((liveData->params.batTempC >= 25) ? TFT_DARKGREEN2 : TFT_BLUE) : TFT_RED;
-    tft.fillRect(0, 70, 50, 140, batColor);
-    tft.fillRect(15, 60, 20, 10, batColor);
-    tft.setTextColor(TFT_WHITE, batColor);
-    tft.setFreeFont(&Roboto_Thin_24);
-    tft.setTextDatum(MC_DATUM);
+    tftFillRect(0, 70, 50, 140, batColor);
+    tftFillRect(15, 60, 20, 10, batColor);
+    tftSetTextColor(TFT_WHITE, batColor);
+    tftSetFreeFont(&Roboto_Thin_24);
+    tftSetTextDatum(MC_DATUM);
     sprintf(tmpStr3, "%01.00f", liveData->celsius2temperature(liveData->params.batTempC));
-    tft.drawString(tmpStr3, 25, 180, GFXFF);
+    tftDrawString(tmpStr3, 25, 180, GFXFF);
 
     // Brake lights
-    tft.fillRect(0, 215, 320, 25, (liveData->params.brakeLights) ? TFT_DARKRED : TFT_BLACK);
+    tftFillRect(0, 215, 320, 25, (liveData->params.brakeLights) ? TFT_DARKRED : TFT_BLACK);
 }
 
 /**
@@ -647,16 +622,16 @@ void Board320_240::drawSceneBatteryCells() {
       continue;
     posx = (((i - 4) % 8) * 40);
     posy = ((floor((i - 4) / 8)) * 13) + 64;
-    //spr.fillRect(x * 80, y * 32, ((w) * 80), ((h) * 32),  bgColor);
-    spr.setTextSize(1); // Size for small 5x7 font
-    spr.setTextDatum(TL_DATUM);
-    spr.setTextColor(((liveData->params.batModuleTempC[i] >= 15) ? ((liveData->params.batModuleTempC[i] >= 25) ? TFT_GREEN : TFT_BLUE) : TFT_RED), TFT_BLACK);
+    //sprFillRect(x * 80, y * 32, ((w) * 80), ((h) * 32),  bgColor);
+    sprSetTextSize(1); // Size for small 5x7 font
+    sprSetTextDatum(TL_DATUM);
+    sprSetTextColor(((liveData->params.batModuleTempC[i] >= 15) ? ((liveData->params.batModuleTempC[i] >= 25) ? TFT_GREEN : TFT_BLUE) : TFT_RED), TFT_BLACK);
     sprintf(tmpStr1, ((liveData->settings.temperatureUnit == 'c') ? "%01.00fC" : "%01.01fF"), liveData->celsius2temperature(liveData->params.batModuleTempC[i]));
-    spr.drawString(tmpStr1, posx + 4, posy, 2);
+    sprDrawString(tmpStr1, posx + 4, posy, 2);
   }
 
-  spr.setTextDatum(TL_DATUM); // Topleft
-  spr.setTextSize(1); // Size for small 5x7 font
+  sprSetTextDatum(TL_DATUM); // Topleft
+  sprSetTextSize(1); // Size for small 5x7 font
 
   // Find min and max val
   float minVal = -1, maxVal = -1;
@@ -676,12 +651,12 @@ void Board320_240::drawSceneBatteryCells() {
     posx = ((i % 8) * 40) + 4;
     posy = ((floor(i / 8) + (liveData->params.cellCount > 96 ? 0 : 1)) * 13) + 68;
     sprintf(tmpStr3, "%01.02f", liveData->params.cellVoltage[i]);
-    spr.setTextColor(TFT_NAVY, TFT_BLACK);
+    sprSetTextColor(TFT_NAVY, TFT_BLACK);
     if (liveData->params.cellVoltage[i] == minVal && minVal != maxVal)
-      spr.setTextColor(TFT_RED, TFT_BLACK);
+      sprSetTextColor(TFT_RED, TFT_BLACK);
     if (liveData->params.cellVoltage[i] == maxVal && minVal != maxVal)
-      spr.setTextColor(TFT_GREEN, TFT_BLACK);
-    spr.drawString(tmpStr3, posx, posy, 2);
+      sprSetTextColor(TFT_GREEN, TFT_BLACK);
+    sprDrawString(tmpStr3, posx, posy, 2);
   }
 }
 
@@ -692,63 +667,63 @@ void Board320_240::drawSceneBatteryCells() {
 void Board320_240::drawPreDrawnChargingGraphs(int zeroX, int zeroY, int mulX, int mulY) {
 
   // Rapid gate
-  spr.drawLine(zeroX + (/* SOC FROM */ 1 * mulX), zeroY - (/*I*/ 180 * /*U SOC*/ (1 * 55 / 100 + 352) /**/ / 1000 * mulY),
+  sprDrawLine(zeroX + (/* SOC FROM */ 1 * mulX), zeroY - (/*I*/ 180 * /*U SOC*/ (1 * 55 / 100 + 352) /**/ / 1000 * mulY),
                zeroX +  (/* SOC TO */ 57 * mulX), zeroY - (/*I*/ 180 * /*U SOC*/ (57 * 55 / 100 + 352) /**/ / 1000 * mulY), TFT_GRAPH_RAPIDGATE35);
   // Coldgate <5C
-  spr.drawLine(zeroX + (/* SOC FROM */ 1 * mulX), zeroY - (/*I*/ 60 * /*U SOC*/ (1 * 55 / 100 + 352) /**/ / 1000 * mulY),
+  sprDrawLine(zeroX + (/* SOC FROM */ 1 * mulX), zeroY - (/*I*/ 60 * /*U SOC*/ (1 * 55 / 100 + 352) /**/ / 1000 * mulY),
                zeroX +  (/* SOC TO */ 65 * mulX), zeroY - (/*I*/ 60 * /*U SOC*/ (65 * 55 / 100 + 352) /**/ / 1000 * mulY), TFT_GRAPH_COLDGATE0_5);
   // Coldgate 5-14C
-  spr.drawLine(zeroX + (/* SOC FROM */ 1 * mulX), zeroY - (/*I*/ 110 * /*U SOC*/ (1 * 55 / 100 + 352) /**/ / 1000 * mulY),
+  sprDrawLine(zeroX + (/* SOC FROM */ 1 * mulX), zeroY - (/*I*/ 110 * /*U SOC*/ (1 * 55 / 100 + 352) /**/ / 1000 * mulY),
                zeroX +  (/* SOC TO */ 57 * mulX), zeroY - (/*I*/ 110 * /*U SOC*/ (57 * 55 / 100 + 352) /**/ / 1000 * mulY), TFT_GRAPH_COLDGATE5_14);
-  spr.drawLine(zeroX +  (/* SOC FROM */ 57 * mulX), zeroY - (/*I*/ 110 * /*U SOC*/ (57 * 55 / 100 + 352) /**/ / 1000 * mulY),
+  sprDrawLine(zeroX +  (/* SOC FROM */ 57 * mulX), zeroY - (/*I*/ 110 * /*U SOC*/ (57 * 55 / 100 + 352) /**/ / 1000 * mulY),
                zeroX + (/* SOC TO */ 58 * mulX), zeroY - (/*I*/ 75 * /*U SOC*/ (58 * 55 / 100 + 352) /**/ / 1000 * mulY), TFT_GRAPH_COLDGATE5_14);
-  spr.drawLine(zeroX + (/* SOC FROM */ 58 * mulX), zeroY - (/*I*/ 75 * /*U SOC*/ (58 * 55 / 100 + 352) /**/ / 1000 * mulY),
+  sprDrawLine(zeroX + (/* SOC FROM */ 58 * mulX), zeroY - (/*I*/ 75 * /*U SOC*/ (58 * 55 / 100 + 352) /**/ / 1000 * mulY),
                zeroX +  (/* SOC TO */ 64 * mulX), zeroY - (/*I*/ 75 * /*U SOC*/ (64 * 55 / 100 + 352) /**/ / 1000 * mulY), TFT_GRAPH_COLDGATE5_14);
-  spr.drawLine(zeroX + (/* SOC FROM */ 64 * mulX), zeroY - (/*I*/ 75 * /*U SOC*/ (64 * 55 / 100 + 352) /**/ / 1000 * mulY),
+  sprDrawLine(zeroX + (/* SOC FROM */ 64 * mulX), zeroY - (/*I*/ 75 * /*U SOC*/ (64 * 55 / 100 + 352) /**/ / 1000 * mulY),
                zeroX +  (/* SOC TO */ 65 * mulX), zeroY - (/*I*/ 60 * /*U SOC*/ (65 * 55 / 100 + 352) /**/ / 1000 * mulY), TFT_GRAPH_COLDGATE5_14);
-  spr.drawLine(zeroX + (/* SOC FROM */ 65 * mulX), zeroY - (/*I*/ 60 * /*U SOC*/ (65 * 55 / 100 + 352) /**/ / 1000 * mulY),
+  sprDrawLine(zeroX + (/* SOC FROM */ 65 * mulX), zeroY - (/*I*/ 60 * /*U SOC*/ (65 * 55 / 100 + 352) /**/ / 1000 * mulY),
                zeroX +  (/* SOC TO */ 82 * mulX), zeroY - (/*I*/ 60 * /*U SOC*/ (82 * 55 / 100 + 352) /**/ / 1000 * mulY), TFT_GRAPH_COLDGATE5_14);
-  spr.drawLine(zeroX + (/* SOC FROM */ 82 * mulX), zeroY - (/*I*/ 60 * /*U SOC*/ (82 * 55 / 100 + 352) /**/ / 1000 * mulY),
+  sprDrawLine(zeroX + (/* SOC FROM */ 82 * mulX), zeroY - (/*I*/ 60 * /*U SOC*/ (82 * 55 / 100 + 352) /**/ / 1000 * mulY),
                zeroX +  (/* SOC TO */ 83 * mulX), zeroY - (/*I*/ 40 * /*U SOC*/ (83 * 55 / 100 + 352) /**/ / 1000 * mulY), TFT_GRAPH_COLDGATE5_14);
   // Coldgate 15-24C
-  spr.drawLine(zeroX + (/* SOC FROM */ 1 * mulX), zeroY - (/*I*/ 150 * /*U SOC*/ (1 * 55 / 100 + 352) /**/ / 1000 * mulY),
+  sprDrawLine(zeroX + (/* SOC FROM */ 1 * mulX), zeroY - (/*I*/ 150 * /*U SOC*/ (1 * 55 / 100 + 352) /**/ / 1000 * mulY),
                zeroX +  (/* SOC TO */ 57 * mulX), zeroY - (/*I*/ 150 * /*U SOC*/ (57 * 55 / 100 + 352) /**/ / 1000 * mulY), TFT_GRAPH_COLDGATE15_24);
-  spr.drawLine(zeroX +  (/* SOC FROM */ 57 * mulX), zeroY - (/*I*/ 150 * /*U SOC*/ (57 * 55 / 100 + 352) /**/ / 1000 * mulY),
+  sprDrawLine(zeroX +  (/* SOC FROM */ 57 * mulX), zeroY - (/*I*/ 150 * /*U SOC*/ (57 * 55 / 100 + 352) /**/ / 1000 * mulY),
                zeroX + (/* SOC FROM */ 58 * mulX), zeroY - (/*I*/ 110 * /*U SOC*/ (58 * 55 / 100 + 352) /**/ / 1000 * mulY), TFT_GRAPH_COLDGATE15_24);
-  spr.drawLine(zeroX + (/* SOC TO */ 58 * mulX), zeroY - (/*I*/ 110 * /*U SOC*/ (58 * 55 / 100 + 352) /**/ / 1000 * mulY),
+  sprDrawLine(zeroX + (/* SOC TO */ 58 * mulX), zeroY - (/*I*/ 110 * /*U SOC*/ (58 * 55 / 100 + 352) /**/ / 1000 * mulY),
                zeroX +  (/* SOC TO */ 78 * mulX), zeroY - (/*I*/ 110 * /*U SOC*/ (78 * 55 / 100 + 352) /**/ / 1000 * mulY), TFT_GRAPH_COLDGATE15_24);
   // Optimal
-  spr.drawLine(zeroX + (/* SOC FROM */ 1 * mulX), zeroY - (/*I*/ 200 * /*U SOC*/ (1 * 55 / 100 + 352) /**/ / 1000 * mulY),
+  sprDrawLine(zeroX + (/* SOC FROM */ 1 * mulX), zeroY - (/*I*/ 200 * /*U SOC*/ (1 * 55 / 100 + 352) /**/ / 1000 * mulY),
                zeroX +  (/* SOC TO */ 57 * mulX), zeroY - (/*I*/ 200 * /*U SOC*/ (57 * 55 / 100 + 352) /**/ / 1000 * mulY), TFT_GRAPH_OPTIMAL25);
-  spr.drawLine(zeroX +  (/* SOC FROM */ 51 * mulX), zeroY - (/*I*/ 200 * /*U SOC*/ (51 * 55 / 100 + 352) /**/ / 1000 * mulY),
+  sprDrawLine(zeroX +  (/* SOC FROM */ 51 * mulX), zeroY - (/*I*/ 200 * /*U SOC*/ (51 * 55 / 100 + 352) /**/ / 1000 * mulY),
                zeroX + (/* SOC TO */ 51 * mulX), zeroY - (/*I*/ 195 * /*U SOC*/ (51 * 55 / 100 + 352) /**/ / 1000 * mulY), TFT_GRAPH_OPTIMAL25);
-  spr.drawLine(zeroX +  (/* SOC FROM */ 53 * mulX), zeroY - (/*I*/ 200 * /*U SOC*/ (53 * 55 / 100 + 352) /**/ / 1000 * mulY),
+  sprDrawLine(zeroX +  (/* SOC FROM */ 53 * mulX), zeroY - (/*I*/ 200 * /*U SOC*/ (53 * 55 / 100 + 352) /**/ / 1000 * mulY),
                zeroX + (/* SOC TO */ 53 * mulX), zeroY - (/*I*/ 195 * /*U SOC*/ (53 * 55 / 100 + 352) /**/ / 1000 * mulY), TFT_GRAPH_OPTIMAL25);
-  spr.drawLine(zeroX +  (/* SOC FROM */ 55 * mulX), zeroY - (/*I*/ 200 * /*U SOC*/ (55 * 55 / 100 + 352) /**/ / 1000 * mulY),
+  sprDrawLine(zeroX +  (/* SOC FROM */ 55 * mulX), zeroY - (/*I*/ 200 * /*U SOC*/ (55 * 55 / 100 + 352) /**/ / 1000 * mulY),
                zeroX + (/* SOC TO */ 55 * mulX), zeroY - (/*I*/ 195 * /*U SOC*/ (55 * 55 / 100 + 352) /**/ / 1000 * mulY), TFT_GRAPH_OPTIMAL25);
-  spr.drawLine(zeroX +  (/* SOC FROM */ 57 * mulX), zeroY - (/*I*/ 200 * /*U SOC*/ (57 * 55 / 100 + 352) /**/ / 1000 * mulY),
+  sprDrawLine(zeroX +  (/* SOC FROM */ 57 * mulX), zeroY - (/*I*/ 200 * /*U SOC*/ (57 * 55 / 100 + 352) /**/ / 1000 * mulY),
                zeroX + (/* SOC TO */ 58 * mulX), zeroY - (/*I*/ 150 * /*U SOC*/ (58 * 55 / 100 + 352) /**/ / 1000 * mulY), TFT_GRAPH_OPTIMAL25);
-  spr.drawLine(zeroX + (/* SOC FROM */ 58 * mulX), zeroY - (/*I*/ 150 * /*U SOC*/ (58 * 55 / 100 + 352) /**/ / 1000 * mulY),
+  sprDrawLine(zeroX + (/* SOC FROM */ 58 * mulX), zeroY - (/*I*/ 150 * /*U SOC*/ (58 * 55 / 100 + 352) /**/ / 1000 * mulY),
                zeroX +  (/* SOC TO */ 77 * mulX), zeroY - (/*I*/ 150 * /*U SOC*/ (77 * 55 / 100 + 352) /**/ / 1000 * mulY), TFT_GRAPH_OPTIMAL25);
-  spr.drawLine(zeroX +  (/* SOC FROM */ 71 * mulX), zeroY - (/*I*/ 150 * /*U SOC*/ (71 * 55 / 100 + 352) /**/ / 1000 * mulY),
+  sprDrawLine(zeroX +  (/* SOC FROM */ 71 * mulX), zeroY - (/*I*/ 150 * /*U SOC*/ (71 * 55 / 100 + 352) /**/ / 1000 * mulY),
                zeroX + (/* SOC TO */ 71 * mulX), zeroY - (/*I*/ 145 * /*U SOC*/ (71 * 55 / 100 + 352) /**/ / 1000 * mulY), TFT_GRAPH_OPTIMAL25);
-  spr.drawLine(zeroX +  (/* SOC FROM */ 73 * mulX), zeroY - (/*I*/ 150 * /*U SOC*/ (73 * 55 / 100 + 352) /**/ / 1000 * mulY),
+  sprDrawLine(zeroX +  (/* SOC FROM */ 73 * mulX), zeroY - (/*I*/ 150 * /*U SOC*/ (73 * 55 / 100 + 352) /**/ / 1000 * mulY),
                zeroX + (/* SOC TO */ 73 * mulX), zeroY - (/*I*/ 145 * /*U SOC*/ (73 * 55 / 100 + 352) /**/ / 1000 * mulY), TFT_GRAPH_OPTIMAL25);
-  spr.drawLine(zeroX +  (/* SOC FROM */ 75 * mulX), zeroY - (/*I*/ 150 * /*U SOC*/ (75 * 55 / 100 + 352) /**/ / 1000 * mulY),
+  sprDrawLine(zeroX +  (/* SOC FROM */ 75 * mulX), zeroY - (/*I*/ 150 * /*U SOC*/ (75 * 55 / 100 + 352) /**/ / 1000 * mulY),
                zeroX + (/* SOC TO */ 75 * mulX), zeroY - (/*I*/ 145 * /*U SOC*/ (75 * 55 / 100 + 352) /**/ / 1000 * mulY), TFT_GRAPH_OPTIMAL25);
-  spr.drawLine(zeroX +  (/* SOC FROM */ 77 * mulX), zeroY - (/*I*/ 150 * /*U SOC*/ (77 * 55 / 100 + 352) /**/ / 1000 * mulY),
+  sprDrawLine(zeroX +  (/* SOC FROM */ 77 * mulX), zeroY - (/*I*/ 150 * /*U SOC*/ (77 * 55 / 100 + 352) /**/ / 1000 * mulY),
                zeroX + (/* SOC TO */ 78 * mulX), zeroY - (/*I*/ 90 * /*U SOC*/ (78 * 55 / 100 + 352) /**/ / 1000 * mulY), TFT_GRAPH_OPTIMAL25);
-  spr.drawLine(zeroX + (/* SOC FROM */ 78 * mulX), zeroY - (/*I*/ 90 * /*U SOC*/ (78 * 55 / 100 + 352) /**/ / 1000 * mulY),
+  sprDrawLine(zeroX + (/* SOC FROM */ 78 * mulX), zeroY - (/*I*/ 90 * /*U SOC*/ (78 * 55 / 100 + 352) /**/ / 1000 * mulY),
                zeroX +  (/* SOC TO */ 82 * mulX), zeroY - (/*I*/ 90 * /*U SOC*/ (82 * 55 / 100 + 352) /**/ / 1000 * mulY), TFT_GRAPH_OPTIMAL25);
-  spr.drawLine(zeroX +  (/* SOC FROM */ 82 * mulX), zeroY - (/*I*/ 90 * /*U SOC*/ (82 * 55 / 100 + 352) /**/ / 1000 * mulY),
+  sprDrawLine(zeroX +  (/* SOC FROM */ 82 * mulX), zeroY - (/*I*/ 90 * /*U SOC*/ (82 * 55 / 100 + 352) /**/ / 1000 * mulY),
                zeroX + (/* SOC TO */ 83 * mulX), zeroY - (/*I*/ 60 * /*U SOC*/ (83 * 55 / 100 + 352) /**/ / 1000 * mulY), TFT_GRAPH_OPTIMAL25);
-  spr.drawLine(zeroX + (/* SOC FROM */ 83 * mulX), zeroY - (/*I*/ 60 * /*U SOC*/ (83 * 55 / 100 + 352) /**/ / 1000 * mulY),
+  sprDrawLine(zeroX + (/* SOC FROM */ 83 * mulX), zeroY - (/*I*/ 60 * /*U SOC*/ (83 * 55 / 100 + 352) /**/ / 1000 * mulY),
                zeroX +  (/* SOC TO */ 92 * mulX), zeroY - (/*I*/ 60 * /*U SOC*/ (92 * 55 / 100 + 352) /**/ / 1000 * mulY), TFT_GRAPH_OPTIMAL25);
-  spr.drawLine(zeroX +  (/* SOC FROM */ 92 * mulX), zeroY - (/*I*/ 60 * /*U SOC*/ (92 * 55 / 100 + 352) /**/ / 1000 * mulY),
+  sprDrawLine(zeroX +  (/* SOC FROM */ 92 * mulX), zeroY - (/*I*/ 60 * /*U SOC*/ (92 * 55 / 100 + 352) /**/ / 1000 * mulY),
                zeroX +  (/* SOC TO */ 95 * mulX), zeroY - (/*I*/ 35 * /*U SOC*/ (95 * 55 / 100 + 352) /**/ / 1000 * mulY), TFT_GRAPH_OPTIMAL25);
-  spr.drawLine(zeroX +  (/* SOC FROM */ 95 * mulX), zeroY - (/*I*/ 35 * /*U SOC*/ (95 * 55 / 100 + 352) /**/ / 1000 * mulY),
+  sprDrawLine(zeroX +  (/* SOC FROM */ 95 * mulX), zeroY - (/*I*/ 35 * /*U SOC*/ (95 * 55 / 100 + 352) /**/ / 1000 * mulY),
                zeroX +  (/* SOC TO */ 98 * mulX), zeroY - (/*I*/ 35 * /*U SOC*/ (98 * 55 / 100 + 352) /**/ / 1000 * mulY), TFT_GRAPH_OPTIMAL25);
-  spr.drawLine(zeroX +  (/* SOC FROM */ 98 * mulX), zeroY - (/*I*/ 35 * /*U SOC*/ (98 * 55 / 100 + 352) /**/ / 1000 * mulY),
+  sprDrawLine(zeroX +  (/* SOC FROM */ 98 * mulX), zeroY - (/*I*/ 35 * /*U SOC*/ (98 * 55 / 100 + 352) /**/ / 1000 * mulY),
                zeroX +  (/* SOC TO */ 100 * mulX), zeroY - (/*I*/ 15 * /*U SOC*/ (100 * 55 / 100 + 352) /**/ / 1000 * mulY), TFT_GRAPH_OPTIMAL25);
   // Triangles
   int x = zeroX;
@@ -764,7 +739,7 @@ void Board320_240::drawPreDrawnChargingGraphs(int zeroX, int zeroY, int mulX, in
   } else {
     y = zeroY - (/*I*/ 60 * /*U SOC*/ (1 * 55 / 100 + 352) /**/ / 1000 * mulY);
   }
-  spr.fillTriangle(x + 5, y,  x , y - 5, x, y + 5, TFT_ORANGE);
+  sprFillTriangle(x + 5, y,  x , y - 5, x, y + 5, TFT_ORANGE);
 }
 
 /**
@@ -780,7 +755,7 @@ void Board320_240::drawSceneChargingGraph() {
   int posy = 0;
   uint16_t color;
 
-  spr.fillSprite(TFT_BLACK);
+  sprFillSprite(TFT_BLACK);
 
   sprintf(tmpStr1, "%01.00f", liveData->params.socPerc);
   drawSmallCell(0, 0, 1, 1, tmpStr1, "SOC", TFT_TEMP, TFT_CYAN);
@@ -800,24 +775,24 @@ void Board320_240::drawSceneChargingGraph() {
   sprintf(tmpStr1, ((liveData->settings.temperatureUnit == 'c') ? "%01.00f C" : "%01.01f F"), liveData->celsius2temperature(liveData->params.outdoorTemperature));
   drawSmallCell(3, 1, 1, 1, tmpStr1, "OUT.TEMP.", TFT_TEMP, TFT_CYAN);
 
-  spr.setTextColor(TFT_SILVER, TFT_TEMP);
+  sprSetTextColor(TFT_SILVER, TFT_TEMP);
 
   for (int i = 0; i <= 10; i++) {
     color = TFT_DARKRED2;
     if (i == 0 || i == 5 || i == 10)
       color = TFT_DARKRED;
-    spr.drawFastVLine(zeroX + (i * 10 * mulX), zeroY - (maxKw * mulY), maxKw * mulY, color);
+    sprDrawFastVLine(zeroX + (i * 10 * mulX), zeroY - (maxKw * mulY), maxKw * mulY, color);
     /*if (i != 0 && i != 10) {
       sprintf(tmpStr1, "%d%%", i * 10);
-      spr.setTextDatum(BC_DATUM);
-      spr.drawString(tmpStr1, zeroX + (i * 10 * mulX),  zeroY - (maxKw * mulY), 2);
+      sprSetTextDatum(BC_DATUM);
+      sprDrawString(tmpStr1, zeroX + (i * 10 * mulX),  zeroY - (maxKw * mulY), 2);
       }*/
     if (i <= (maxKw / 10)) {
-      spr.drawFastHLine(zeroX, zeroY - (i * 10 * mulY), 100 * mulX, color);
+      sprDrawFastHLine(zeroX, zeroY - (i * 10 * mulY), 100 * mulX, color);
       if (i > 0) {
         sprintf(tmpStr1, "%d", i * 10);
-        spr.setTextDatum(ML_DATUM);
-        spr.drawString(tmpStr1, zeroX + (100 * mulX) + 3, zeroY - (i * 10 * mulY), 2);
+        sprSetTextDatum(ML_DATUM);
+        sprDrawString(tmpStr1, zeroX + (100 * mulX) + 3, zeroY - (i * 10 * mulY), 2);
       }
     }
   }
@@ -830,92 +805,92 @@ void Board320_240::drawSceneChargingGraph() {
   // Draw realtime values
   for (int i = 0; i <= 100; i++) {
     if (liveData->params.chargingGraphBatMinTempC[i] > -10)
-      spr.drawFastHLine(zeroX + (i * mulX) - (mulX / 2), zeroY - (liveData->params.chargingGraphBatMinTempC[i]*mulY), mulX, TFT_BLUE);
+      sprDrawFastHLine(zeroX + (i * mulX) - (mulX / 2), zeroY - (liveData->params.chargingGraphBatMinTempC[i]*mulY), mulX, TFT_BLUE);
     if (liveData->params.chargingGraphBatMaxTempC[i] > -10)
-      spr.drawFastHLine(zeroX + (i * mulX) - (mulX / 2), zeroY - (liveData->params.chargingGraphBatMaxTempC[i]*mulY), mulX, TFT_BLUE);
+      sprDrawFastHLine(zeroX + (i * mulX) - (mulX / 2), zeroY - (liveData->params.chargingGraphBatMaxTempC[i]*mulY), mulX, TFT_BLUE);
     if (liveData->params.chargingGraphWaterCoolantTempC[i] > -10)
-      spr.drawFastHLine(zeroX + (i * mulX) - (mulX / 2), zeroY - (liveData->params.chargingGraphWaterCoolantTempC[i]*mulY), mulX, TFT_PURPLE);
+      sprDrawFastHLine(zeroX + (i * mulX) - (mulX / 2), zeroY - (liveData->params.chargingGraphWaterCoolantTempC[i]*mulY), mulX, TFT_PURPLE);
     if (liveData->params.chargingGraphHeaterTempC[i] > -10)
-      spr.drawFastHLine(zeroX + (i * mulX) - (mulX / 2), zeroY - (liveData->params.chargingGraphHeaterTempC[i]*mulY), mulX, TFT_RED);
+      sprDrawFastHLine(zeroX + (i * mulX) - (mulX / 2), zeroY - (liveData->params.chargingGraphHeaterTempC[i]*mulY), mulX, TFT_RED);
 
     if (liveData->params.chargingGraphMinKw[i] > 0)
-      spr.drawFastHLine(zeroX + (i * mulX) - (mulX / 2), zeroY - (liveData->params.chargingGraphMinKw[i]*mulY), mulX, TFT_GREENYELLOW);
+      sprDrawFastHLine(zeroX + (i * mulX) - (mulX / 2), zeroY - (liveData->params.chargingGraphMinKw[i]*mulY), mulX, TFT_GREENYELLOW);
     if (liveData->params.chargingGraphMaxKw[i] > 0)
-      spr.drawFastHLine(zeroX + (i * mulX) - (mulX / 2), zeroY - (liveData->params.chargingGraphMaxKw[i]*mulY), mulX, TFT_YELLOW);
+      sprDrawFastHLine(zeroX + (i * mulX) - (mulX / 2), zeroY - (liveData->params.chargingGraphMaxKw[i]*mulY), mulX, TFT_YELLOW);
   }
 
   // Bat.module temperatures
-  spr.setTextSize(1); // Size for small 5x7 font
-  spr.setTextDatum(BL_DATUM);
+  sprSetTextSize(1); // Size for small 5x7 font
+  sprSetTextDatum(BL_DATUM);
   sprintf(tmpStr1, ((liveData->settings.temperatureUnit == 'c') ? "1=%01.00fC" : "1=%01.00fF"), liveData->celsius2temperature(liveData->params.batModuleTempC[0]));
-  spr.setTextColor((liveData->params.batModuleTempC[0] >= 15) ? ((liveData->params.batModuleTempC[0] >= 25) ? TFT_GREEN : TFT_BLUE) : TFT_RED, TFT_TEMP);
-  spr.drawString(tmpStr1, 0,  zeroY - (maxKw * mulY), 2);
+  sprSetTextColor((liveData->params.batModuleTempC[0] >= 15) ? ((liveData->params.batModuleTempC[0] >= 25) ? TFT_GREEN : TFT_BLUE) : TFT_RED, TFT_TEMP);
+  sprDrawString(tmpStr1, 0,  zeroY - (maxKw * mulY), 2);
 
   sprintf(tmpStr1, ((liveData->settings.temperatureUnit == 'c') ? "2=%01.00fC" : "2=%01.00fF"), liveData->celsius2temperature(liveData->params.batModuleTempC[1]));
-  spr.setTextColor((liveData->params.batModuleTempC[1] >= 15) ? ((liveData->params.batModuleTempC[1] >= 25) ? TFT_GREEN : TFT_BLUE) : TFT_RED, TFT_TEMP);
-  spr.drawString(tmpStr1, 48,  zeroY - (maxKw * mulY), 2);
+  sprSetTextColor((liveData->params.batModuleTempC[1] >= 15) ? ((liveData->params.batModuleTempC[1] >= 25) ? TFT_GREEN : TFT_BLUE) : TFT_RED, TFT_TEMP);
+  sprDrawString(tmpStr1, 48,  zeroY - (maxKw * mulY), 2);
 
   sprintf(tmpStr1, ((liveData->settings.temperatureUnit == 'c') ? "3=%01.00fC" : "3=%01.00fF"), liveData->celsius2temperature(liveData->params.batModuleTempC[2]));
-  spr.setTextColor((liveData->params.batModuleTempC[2] >= 15) ? ((liveData->params.batModuleTempC[2] >= 25) ? TFT_GREEN : TFT_BLUE) : TFT_RED, TFT_TEMP);
-  spr.drawString(tmpStr1, 96,  zeroY - (maxKw * mulY), 2);
+  sprSetTextColor((liveData->params.batModuleTempC[2] >= 15) ? ((liveData->params.batModuleTempC[2] >= 25) ? TFT_GREEN : TFT_BLUE) : TFT_RED, TFT_TEMP);
+  sprDrawString(tmpStr1, 96,  zeroY - (maxKw * mulY), 2);
 
   sprintf(tmpStr1, ((liveData->settings.temperatureUnit == 'c') ? "4=%01.00fC" : "4=%01.00fF"), liveData->celsius2temperature(liveData->params.batModuleTempC[3]));
-  spr.setTextColor((liveData->params.batModuleTempC[3] >= 15) ? ((liveData->params.batModuleTempC[3] >= 25) ? TFT_GREEN : TFT_BLUE) : TFT_RED, TFT_TEMP);
-  spr.drawString(tmpStr1, 144,  zeroY - (maxKw * mulY), 2);
+  sprSetTextColor((liveData->params.batModuleTempC[3] >= 15) ? ((liveData->params.batModuleTempC[3] >= 25) ? TFT_GREEN : TFT_BLUE) : TFT_RED, TFT_TEMP);
+  sprDrawString(tmpStr1, 144,  zeroY - (maxKw * mulY), 2);
   sprintf(tmpStr1, "ir %01.00fkOhm", liveData->params.isolationResistanceKOhm );
 
   // Bms max.regen/power available
-  spr.setTextColor(TFT_WHITE, TFT_BLACK);
+  sprSetTextColor(TFT_WHITE, TFT_BLACK);
   sprintf(tmpStr1, "xC=%01.00fkW ", liveData->params.availableChargePower);
-  spr.drawString(tmpStr1, 192,  zeroY - (maxKw * mulY), 2);
-  spr.setTextColor(TFT_WHITE, TFT_BLACK);
+  sprDrawString(tmpStr1, 192,  zeroY - (maxKw * mulY), 2);
+  sprSetTextColor(TFT_WHITE, TFT_BLACK);
   sprintf(tmpStr1, "xD=%01.00fkW", liveData->params.availableDischargePower);
-  spr.drawString(tmpStr1, 256,  zeroY - (maxKw * mulY), 2);
+  sprDrawString(tmpStr1, 256,  zeroY - (maxKw * mulY), 2);
 
   //
-  spr.setTextDatum(TR_DATUM);
+  sprSetTextDatum(TR_DATUM);
   if (liveData->params.coolingWaterTempC != -1) {
     sprintf(tmpStr1, ((liveData->settings.temperatureUnit == 'c') ? "%s / W=%01.00fC" : "%s /W=%01.00fF"), 
       liveData->getBatteryManagementModeStr(liveData->params.batteryManagementMode),
       liveData->celsius2temperature(liveData->params.coolingWaterTempC));
-    spr.setTextColor(TFT_PINK, TFT_TEMP);
-    spr.drawString(tmpStr1, zeroX + (10 * 10 * mulX),  zeroY - (maxKw * mulY) + (posy * 15), 2);
+    sprSetTextColor(TFT_PINK, TFT_TEMP);
+    sprDrawString(tmpStr1, zeroX + (10 * 10 * mulX),  zeroY - (maxKw * mulY) + (posy * 15), 2);
     posy++;
   }
-  spr.setTextColor(TFT_WHITE, TFT_TEMP);
+  sprSetTextColor(TFT_WHITE, TFT_TEMP);
   if (liveData->params.batFanFeedbackHz > 0) {
     sprintf(tmpStr1, "FF=%03.00fHz", liveData->params.batFanFeedbackHz);
-    spr.drawString(tmpStr1, zeroX + (10 * 10 * mulX),  zeroY - (maxKw * mulY) + (posy * 15), 2);
+    sprDrawString(tmpStr1, zeroX + (10 * 10 * mulX),  zeroY - (maxKw * mulY) + (posy * 15), 2);
     posy++;
   }
   if (liveData->params.batFanStatus > 0) {
     sprintf(tmpStr1, "FS=%03.00f", liveData->params.batFanStatus);
-    spr.drawString(tmpStr1, zeroX + (10 * 10 * mulX),  zeroY - (maxKw * mulY) + (posy * 15), 2);
+    sprDrawString(tmpStr1, zeroX + (10 * 10 * mulX),  zeroY - (maxKw * mulY) + (posy * 15), 2);
     posy++;
   }
   if (liveData->params.coolantTemp1C != -1 && liveData->params.coolantTemp2C != -1) {
     sprintf(tmpStr1, ((liveData->settings.temperatureUnit == 'c') ? "C1/2:%01.00f/%01.00fC" : "C1/2:%01.00f/%01.00fF"), liveData->celsius2temperature(liveData->params.coolantTemp1C), liveData->celsius2temperature(liveData->params.coolantTemp2C));
-    spr.drawString(tmpStr1, zeroX + (10 * 10 * mulX),  zeroY - (maxKw * mulY) + (posy * 15), 2);
+    sprDrawString(tmpStr1, zeroX + (10 * 10 * mulX),  zeroY - (maxKw * mulY) + (posy * 15), 2);
     posy++;
   }
   if (liveData->params.bmsUnknownTempA != -1) {
     sprintf(tmpStr1, ((liveData->settings.temperatureUnit == 'c') ? "A=%01.00fC" : "W=%01.00fF"), liveData->celsius2temperature(liveData->params.bmsUnknownTempA));
-    spr.drawString(tmpStr1, zeroX + (10 * 10 * mulX),  zeroY - (maxKw * mulY) + (posy * 15), 2);
+    sprDrawString(tmpStr1, zeroX + (10 * 10 * mulX),  zeroY - (maxKw * mulY) + (posy * 15), 2);
     posy++;
   }
   if (liveData->params.bmsUnknownTempB != -1) {
     sprintf(tmpStr1, ((liveData->settings.temperatureUnit == 'c') ? "B=%01.00fC" : "W=%01.00fF"), liveData->celsius2temperature(liveData->params.bmsUnknownTempB));
-    spr.drawString(tmpStr1, zeroX + (10 * 10 * mulX),  zeroY - (maxKw * mulY) + (posy * 15), 2);
+    sprDrawString(tmpStr1, zeroX + (10 * 10 * mulX),  zeroY - (maxKw * mulY) + (posy * 15), 2);
     posy++;
   }
   if (liveData->params.bmsUnknownTempC != -1) {
     sprintf(tmpStr1, ((liveData->settings.temperatureUnit == 'c') ? "C=%01.00fC" : "W=%01.00fF"), liveData->celsius2temperature(liveData->params.bmsUnknownTempC));
-    spr.drawString(tmpStr1, zeroX + (10 * 10 * mulX),  zeroY - (maxKw * mulY) + (posy * 15), 2);
+    sprDrawString(tmpStr1, zeroX + (10 * 10 * mulX),  zeroY - (maxKw * mulY) + (posy * 15), 2);
     posy++;
   }
   if (liveData->params.bmsUnknownTempD != -1) {
     sprintf(tmpStr1, ((liveData->settings.temperatureUnit == 'c') ? "D=%01.00fC" : "W=%01.00fF"), liveData->celsius2temperature(liveData->params.bmsUnknownTempD));
-    spr.drawString(tmpStr1, zeroX + (10 * 10 * mulX),  zeroY - (maxKw * mulY) + (posy * 15), 2);
+    sprDrawString(tmpStr1, zeroX + (10 * 10 * mulX),  zeroY - (maxKw * mulY) + (posy * 15), 2);
     posy++;
   }
 
@@ -925,9 +900,9 @@ void Board320_240::drawSceneChargingGraph() {
     sprintf(tmpStr1, "%02d:%02d:%02d", (diffTime / 3600) % 24, (diffTime / 60) % 60, diffTime % 60);
   else
     sprintf(tmpStr1, "%02d:%02d", (diffTime / 60), diffTime % 60);
-  spr.setTextDatum(TL_DATUM);
-  spr.setTextColor(TFT_SILVER, TFT_BLACK);
-  spr.drawString(tmpStr1, 0, zeroY - (maxKw * mulY), 2);
+  sprSetTextDatum(TL_DATUM);
+  sprSetTextColor(TFT_SILVER, TFT_BLACK);
+  sprDrawString(tmpStr1, 0, zeroY - (maxKw * mulY), 2);
 }
 
 /**
@@ -942,21 +917,21 @@ void Board320_240::drawSceneSoc10Table() {
   float firstOdo = -1, lastOdo = -1, diffOdo0to5 = 0;
   float diffTime;
 
-  spr.setTextSize(1); // Size for small 5x7 font
-  spr.setTextColor(TFT_SILVER, TFT_TEMP);
-  spr.setTextDatum(TL_DATUM);
-  spr.drawString("CONSUMPTION | DISCH.100%->4% SOC",  2, zeroY, 2);
+  sprSetTextSize(1); // Size for small 5x7 font
+  sprSetTextColor(TFT_SILVER, TFT_TEMP);
+  sprSetTextDatum(TL_DATUM);
+  sprDrawString("CONSUMPTION | DISCH.100%->4% SOC",  2, zeroY, 2);
 
-  spr.setTextDatum(TR_DATUM);
+  sprSetTextDatum(TR_DATUM);
 
-  spr.drawString("dis./char.kWh", 128, zeroY + (1 * 15), 2);
-  spr.drawString(((liveData->settings.distanceUnit == 'k') ? "km" : "mi"), 160, zeroY + (1 * 15), 2);
-  spr.drawString("kWh100", 224, zeroY + (1 * 15), 2);
-  spr.drawString("avg.speed", 310, zeroY + (1 * 15), 2);
+  sprDrawString("dis./char.kWh", 128, zeroY + (1 * 15), 2);
+  sprDrawString(((liveData->settings.distanceUnit == 'k') ? "km" : "mi"), 160, zeroY + (1 * 15), 2);
+  sprDrawString("kWh100", 224, zeroY + (1 * 15), 2);
+  sprDrawString("avg.speed", 310, zeroY + (1 * 15), 2);
 
   for (int i = 0; i <= 10; i++) {
     sprintf(tmpStr1, "%d%%", (i == 0) ? 5 : i * 10);
-    spr.drawString(tmpStr1, 32, zeroY + ((12 - i) * 15), 2);
+    sprDrawString(tmpStr1, 32, zeroY + ((12 - i) * 15), 2);
 
     firstCed = (liveData->params.soc10ced[i] != -1) ? liveData->params.soc10ced[i] : firstCed;
     lastCed = (lastCed == -1 && liveData->params.soc10ced[i] != -1) ? liveData->params.soc10ced[i] : lastCed;
@@ -972,50 +947,50 @@ void Board320_240::drawSceneSoc10Table() {
       diffTime = (liveData->params.soc10time[i + 1] != -1 && liveData->params.soc10time[i] != -1) ? (liveData->params.soc10time[i] - liveData->params.soc10time[i + 1]) : -1;
       if (diffCec != 0) {
         sprintf(tmpStr1, "+%01.01f", diffCec);
-        spr.drawString(tmpStr1, 128, zeroY + ((12 - i) * 15), 2);
+        sprDrawString(tmpStr1, 128, zeroY + ((12 - i) * 15), 2);
         diffCec0to5 = (i == 0) ? diffCec : diffCec0to5;
       }
       if (diffCed != 0) {
         sprintf(tmpStr1, "%01.01f", diffCed);
-        spr.drawString(tmpStr1, 80, zeroY + ((12 - i) * 15), 2);
+        sprDrawString(tmpStr1, 80, zeroY + ((12 - i) * 15), 2);
         diffCed0to5 = (i == 0) ? diffCed : diffCed0to5;
       }
       if (diffOdo != -1) {
         sprintf(tmpStr1, "%01.00f", liveData->km2distance(diffOdo));
-        spr.drawString(tmpStr1, 160, zeroY + ((12 - i) * 15), 2);
+        sprDrawString(tmpStr1, 160, zeroY + ((12 - i) * 15), 2);
         diffOdo0to5 = (i == 0) ? diffOdo : diffOdo0to5;
         if (diffTime > 0) {
           sprintf(tmpStr1, "%01.01f", liveData->km2distance(diffOdo) / (diffTime / 3600));
-          spr.drawString(tmpStr1, 310, zeroY + ((12 - i) * 15), 2);
+          sprDrawString(tmpStr1, 310, zeroY + ((12 - i) * 15), 2);
         }
       }
       if (diffOdo > 0 && diffCed != 0) {
         sprintf(tmpStr1, "%01.1f", (-diffCed * 100.0 / liveData->km2distance(diffOdo)));
-        spr.drawString(tmpStr1, 224, zeroY + ((12 - i) * 15), 2);
+        sprDrawString(tmpStr1, 224, zeroY + ((12 - i) * 15), 2);
       }
     }
 
     if (diffOdo == -1 && liveData->params.soc10odo[i] != -1) {
       sprintf(tmpStr1, "%01.00f", liveData->km2distance(liveData->params.soc10odo[i]));
-      spr.drawString(tmpStr1, 160, zeroY + ((12 - i) * 15), 2);
+      sprDrawString(tmpStr1, 160, zeroY + ((12 - i) * 15), 2);
     }
   }
 
-  spr.drawString("0%", 32, zeroY + (13 * 15), 2);
-  spr.drawString("0-5% is calculated (same) as 5-10%", 310, zeroY + (13 * 15), 2);
+  sprDrawString("0%", 32, zeroY + (13 * 15), 2);
+  sprDrawString("0-5% is calculated (same) as 5-10%", 310, zeroY + (13 * 15), 2);
 
-  spr.drawString("TOT.", 32, zeroY + (14 * 15), 2);
+  sprDrawString("TOT.", 32, zeroY + (14 * 15), 2);
   diffCed = (lastCed != -1 && firstCed != -1) ? firstCed - lastCed + diffCed0to5 : 0;
   sprintf(tmpStr1, "%01.01f", diffCed);
-  spr.drawString(tmpStr1, 80, zeroY + (14 * 15), 2);
+  sprDrawString(tmpStr1, 80, zeroY + (14 * 15), 2);
   diffCec = (lastCec != -1 && firstCec != -1) ? lastCec - firstCec + diffCec0to5 : 0;
   sprintf(tmpStr1, "+%01.01f", diffCec);
-  spr.drawString(tmpStr1, 128, zeroY + (14 * 15), 2);
+  sprDrawString(tmpStr1, 128, zeroY + (14 * 15), 2);
   diffOdo = (lastOdo != -1 && firstOdo != -1) ? lastOdo - firstOdo + diffOdo0to5 : 0;
   sprintf(tmpStr1, "%01.00f", liveData->km2distance(diffOdo));
-  spr.drawString(tmpStr1, 160, zeroY + (14 * 15), 2);
+  sprDrawString(tmpStr1, 160, zeroY + (14 * 15), 2);
   sprintf(tmpStr1, "AVAIL.CAP: %01.01f kWh", -diffCed - diffCec);
-  spr.drawString(tmpStr1, 310, zeroY + (14 * 15), 2);
+  sprDrawString(tmpStr1, 310, zeroY + (14 * 15), 2);
 }
 
 /**
@@ -1112,12 +1087,12 @@ void Board320_240::showMenu() {
   uint16_t posY = 0, tmpCurrMenuItem = 0;
 
   liveData->menuVisible = true;
-  spr.fillSprite(TFT_BLACK);
-  spr.setTextDatum(TL_DATUM);
-  spr.setFreeFont(&Roboto_Thin_24);
+  sprFillSprite(TFT_BLACK);
+  sprSetTextDatum(TL_DATUM);
+  sprSetFreeFont(&Roboto_Thin_24);
 
   // Page scroll
-  uint8_t visibleCount = (int)(tft.height() / spr.fontHeight());
+  uint8_t visibleCount = (int)(tftHeight() / sprFontHeight());
   if (liveData->menuItemSelected >= liveData->menuItemOffset + visibleCount)
     liveData->menuItemOffset = liveData->menuItemSelected - visibleCount + 1;
   if (liveData->menuItemSelected < liveData->menuItemOffset)
@@ -1128,16 +1103,16 @@ void Board320_240::showMenu() {
     if (liveData->menuCurrent == liveData->menuItems[i].parentId) {
       if (tmpCurrMenuItem >= liveData->menuItemOffset) {
         bool isMenuItemSelected = liveData->menuItemSelected == tmpCurrMenuItem;
-        spr.fillRect(0, posY, 320, spr.fontHeight() + 2, isMenuItemSelected ? TFT_DARKGREEN2 : TFT_BLACK);
-        spr.setTextColor(isMenuItemSelected ? TFT_WHITE : TFT_WHITE, isMenuItemSelected ? TFT_DARKGREEN2 : TFT_BLACK);
-        spr.drawString(menuItemCaption(liveData->menuItems[i].id, liveData->menuItems[i].title), 0, posY + 2, GFXFF);
-        posY += spr.fontHeight();
+        sprFillRect(0, posY, 320, sprFontHeight() + 2, isMenuItemSelected ? TFT_DARKGREEN2 : TFT_BLACK);
+        sprSetTextColor(isMenuItemSelected ? TFT_WHITE : TFT_WHITE, isMenuItemSelected ? TFT_DARKGREEN2 : TFT_BLACK);
+        sprDrawString(menuItemCaption(liveData->menuItems[i].id, liveData->menuItems[i].title), 0, posY + 2, GFXFF);
+        posY += sprFontHeight();
       }
       tmpCurrMenuItem++;
     }
   }
 
-  spr.pushSprite(0, 0);
+  displaySprite();
 }
 
 /**
@@ -1221,7 +1196,7 @@ void Board320_240::menuItemClick() {
       case MENU_ADAPTER_CAN: liveData->settings.commType = COMM_TYPE_OBD2CAN; showMenu(); return; break;
       case MENU_ADAPTER_BT3: liveData->settings.commType = COMM_TYPE_OBD2BT3; showMenu(); return; break;
       // Screen orientation
-      case MENU_SCREEN_ROTATION: liveData->settings.displayRotation = (liveData->settings.displayRotation == 1) ? 3 : 1; tft.setRotation(liveData->settings.displayRotation); showMenu(); return; break;
+      case MENU_SCREEN_ROTATION: liveData->settings.displayRotation = (liveData->settings.displayRotation == 1) ? 3 : 1; tftSetRotation(liveData->settings.displayRotation); showMenu(); return; break;
       // Default screen
       case 3061: liveData->settings.defaultScreen = 1; showParentMenu = true; break;
       case 3062: liveData->settings.defaultScreen = 2; showParentMenu = true; break;
@@ -1343,16 +1318,16 @@ void Board320_240::redrawScreen() {
   // Headlights reminders
   if (!testDataMode && liveData->settings.headlightsReminder == 1 && liveData->params.forwardDriveMode &&
       !liveData->params.headLights && !liveData->params.autoLights) {
-    spr.fillSprite(TFT_RED);
-    spr.setFreeFont(&Orbitron_Light_32);
-    spr.setTextColor(TFT_WHITE, TFT_RED);
-    spr.setTextDatum(MC_DATUM);
-    spr.drawString("! LIGHTS OFF !", 160, 120, GFXFF);
-    spr.pushSprite(0, 0);
+    sprFillSprite(TFT_RED);
+    sprSetFreeFont(&Orbitron_Light_32);
+    sprSetTextColor(TFT_WHITE, TFT_RED);
+    sprSetTextDatum(MC_DATUM);
+    sprDrawString("! LIGHTS OFF !", 160, 120, GFXFF);
+    displaySprite();
     return;
   }
 
-  spr.fillSprite(TFT_BLACK);
+  sprFillSprite(TFT_BLACK);
 
   liveData->params.displayScreenAutoMode = SCREEN_AUTO;
 
@@ -1407,8 +1382,8 @@ void Board320_240::redrawScreen() {
   // SDCARD recording
   /*liveData->params.sdcardRecording*/
   if (liveData->settings.sdcardEnabled == 1 && (liveData->params.queueLoopCounter & 1) == 1) {
-    spr.fillCircle((liveData->params.displayScreen == SCREEN_SPEED || liveData->params.displayScreenAutoMode == SCREEN_SPEED) ? 145 : 310, 10, 4, TFT_BLACK);
-    spr.fillCircle((liveData->params.displayScreen == SCREEN_SPEED || liveData->params.displayScreenAutoMode == SCREEN_SPEED) ? 145 : 310, 10, 3,
+    sprFillCircle((liveData->params.displayScreen == SCREEN_SPEED || liveData->params.displayScreenAutoMode == SCREEN_SPEED) ? 145 : 310, 10, 4, TFT_BLACK);
+    sprFillCircle((liveData->params.displayScreen == SCREEN_SPEED || liveData->params.displayScreenAutoMode == SCREEN_SPEED) ? 145 : 310, 10, 3,
                    (liveData->params.sdcardInit == 1) ?
                    (liveData->params.sdcardRecording) ?
                    (strlen(liveData->params.sdcardFilename) != 0) ?
@@ -1420,18 +1395,18 @@ void Board320_240::redrawScreen() {
   }
   // GPS state
   if (gpsHwUart != NULL && (liveData->params.displayScreen == SCREEN_SPEED || liveData->params.displayScreenAutoMode == SCREEN_SPEED)) {
-    spr.drawCircle(160, 10, 5, (gps.location.isValid()) ? TFT_GREEN : TFT_RED);
-    spr.setTextSize(1);
-    spr.setTextColor((gps.location.isValid()) ? TFT_GREEN : TFT_WHITE, TFT_BLACK);
-    spr.setTextDatum(TL_DATUM);
+    sprDrawCircle(160, 10, 5, (gps.location.isValid()) ? TFT_GREEN : TFT_RED);
+    sprSetTextSize(1);
+    sprSetTextColor((gps.location.isValid()) ? TFT_GREEN : TFT_WHITE, TFT_BLACK);
+    sprSetTextDatum(TL_DATUM);
     sprintf(tmpStr1, "%d", liveData->params.gpsSat);
-    spr.drawString(tmpStr1, 174, 2, 2);
+    sprDrawString(tmpStr1, 174, 2, 2);
   }
 
   // SIM800L status
   if (liveData->params.sim800l_enabled) {
     if (liveData->params.displayScreen == SCREEN_SPEED || liveData->params.displayScreenAutoMode == SCREEN_SPEED) {
-      spr.fillRect(127, 7, 7, 7,
+      sprFillRect(127, 7, 7, 7,
                     (liveData->params.lastDataSent + SIM800L_SND_TIMEOUT > liveData->params.sim800l_lastOkSendTime) ?
                     (liveData->params.lastDataSent + SIM800L_SND_TIMEOUT + SIM800L_RCV_TIMEOUT > liveData->params.sim800l_lastOkReceiveTime) ?
                     TFT_GREEN   /* last request was 200 OK */ :
@@ -1439,7 +1414,7 @@ void Board320_240::redrawScreen() {
                     TFT_RED     /* failed to send data */
                   );
     } else if (liveData->params.displayScreen != SCREEN_BLANK) {
-      spr.fillRect(308, 0, 5, 5,
+      sprFillRect(308, 0, 5, 5,
                     (liveData->params.lastDataSent + SIM800L_SND_TIMEOUT > liveData->params.sim800l_lastOkSendTime) ?
                     (liveData->params.lastDataSent + SIM800L_SND_TIMEOUT + SIM800L_RCV_TIMEOUT > liveData->params.sim800l_lastOkReceiveTime) ?
                     TFT_GREEN   /* last request was 200 OK */ :
@@ -1451,30 +1426,30 @@ void Board320_240::redrawScreen() {
 
   // Door status
   if (liveData->params.trunkDoorOpen)
-    spr.fillRect(20, 0, 320 - 40, 20, TFT_YELLOW);
+    sprFillRect(20, 0, 320 - 40, 20, TFT_YELLOW);
   if (liveData->params.leftFrontDoorOpen)
-    spr.fillRect(0, 20, 20, 98, TFT_YELLOW);
+    sprFillRect(0, 20, 20, 98, TFT_YELLOW);
   if (liveData->params.rightFrontDoorOpen)
-    spr.fillRect(0, 122, 20, 98, TFT_YELLOW);
+    sprFillRect(0, 122, 20, 98, TFT_YELLOW);
   if (liveData->params.leftRearDoorOpen)
-    spr.fillRect(320 - 20, 20, 20, 98, TFT_YELLOW);
+    sprFillRect(320 - 20, 20, 20, 98, TFT_YELLOW);
   if (liveData->params.rightRearDoorOpen)
-    spr.fillRect(320 - 20, 122, 20, 98, TFT_YELLOW);
+    sprFillRect(320 - 20, 122, 20, 98, TFT_YELLOW);
   if (liveData->params.hoodDoorOpen)
-    spr.fillRect(20, 240 - 20, 320 - 40, 20, TFT_YELLOW);
+    sprFillRect(20, 240 - 20, 320 - 40, 20, TFT_YELLOW);
 
   // BLE not connected
   if (!liveData->commConnected && liveData->bleConnect && liveData->tmpSettings.commType == COMM_TYPE_OBD2BLE4) {
     // Print message
-    spr.setTextSize(1);
-    spr.setTextColor(TFT_WHITE, TFT_BLACK);
-    spr.setTextDatum(TL_DATUM);
-    spr.drawString("BLE4 OBDII not connected...", 0, 180, 2);
-    spr.drawString("Press middle button to menu.", 0, 200, 2);
-    spr.drawString(APP_VERSION, 0, 220, 2);
+    sprSetTextSize(1);
+    sprSetTextColor(TFT_WHITE, TFT_BLACK);
+    sprSetTextDatum(TL_DATUM);
+    sprDrawString("BLE4 OBDII not connected...", 0, 180, 2);
+    sprDrawString("Press middle button to menu.", 0, 200, 2);
+    sprDrawString(APP_VERSION, 0, 220, 2);
   }
 
-  spr.pushSprite(0, 0);
+  displaySprite();
 }
 
 /**
@@ -1503,7 +1478,7 @@ void Board320_240::mainLoop() {
     if (!btnMiddlePressed) {
       btnMiddlePressed = true;
       liveData->params.lastButtonPushedTime = liveData->params.currentTime;
-      tft.setRotation(liveData->settings.displayRotation);
+      tftSetRotation(liveData->settings.displayRotation);
       if (liveData->menuVisible) {
         menuItemClick();
       } else {
@@ -1518,7 +1493,7 @@ void Board320_240::mainLoop() {
     if (!btnLeftPressed) {
       btnLeftPressed = true;
       liveData->params.lastButtonPushedTime = liveData->params.currentTime;
-      tft.setRotation(liveData->settings.displayRotation);
+      tftSetRotation(liveData->settings.displayRotation);
       // Menu handling
       if (liveData->menuVisible) {
         menuMove(false);
@@ -1539,7 +1514,7 @@ void Board320_240::mainLoop() {
     if (!btnRightPressed) {
       btnRightPressed = true;
       liveData->params.lastButtonPushedTime = liveData->params.currentTime;
-      tft.setRotation(liveData->settings.displayRotation);
+      tftSetRotation(liveData->settings.displayRotation);
       // Menu handling
       if (liveData->menuVisible) {
         menuMove(true);
@@ -1547,7 +1522,7 @@ void Board320_240::mainLoop() {
         // doAction
         if (liveData->params.displayScreen == SCREEN_SPEED) {
           liveData->params.displayScreen = SCREEN_HUD;
-          tft.fillScreen(TFT_BLACK);
+          tftFillScreen(TFT_BLACK);
           redrawScreen();
         }
         else if (liveData->params.displayScreen == SCREEN_HUD) {

@@ -1,12 +1,12 @@
 #include "BoardInterface.h"
+#include "BoardM5stackCore2.h"
 #include "Board320_240.h"
-#include "BoardM5stackCore.h"
-#include <M5Stack.h>
+#include <M5Core2.h>
 
 /**
   Init board
 */
-void BoardM5stackCore::initBoard() {
+void BoardM5stackCore2::initBoard() {
 
   invertDisplay = true;
   
@@ -22,25 +22,24 @@ void BoardM5stackCore::initBoard() {
 
   // Mute speaker
   //ledcWriteTone(TONE_PIN_CHANNEL, 0);
-  //dacWrite(SPEAKER_PIN, 0);
+  dacWrite(SPEAKER_PIN, 0);
 
   //
   Board320_240::initBoard();
 }
 
 /**
- * Main loop
+ * mainLoop
  */
-void BoardM5stackCore::mainLoop() {
+void BoardM5stackCore2::mainLoop() {
 
-  M5.update();
   Board320_240::mainLoop();
 }
 
 /**
  * Init display
  */
-void BoardM5stackCore::initDisplay() {
+void BoardM5stackCore2::initDisplay() {
   
   // initialize the M5Stack object
   M5.begin();
@@ -49,7 +48,7 @@ void BoardM5stackCore::initDisplay() {
 /**
    Clear screen a display two lines message
 */
-void BoardM5stackCore::displayMessage(const char* row1, const char* row2) {
+void BoardM5stackCore2::displayMessage(const char* row1, const char* row2) {
 
   // Must draw directly, without sprite (due to psramFound check)
   M5.Lcd.fillScreen(TFT_BLACK);
