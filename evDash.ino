@@ -34,10 +34,10 @@
 #include "BoardTtgoT4v13.h"
 #endif // BOARD_TTGO_T4
 #ifdef BOARD_M5STACK_CORE
-//#include "BoardM5stackCore.h"
+#include "BoardM5stackCore.h"
 #endif // BOARD_M5STACK_CORE
 #ifdef BOARD_M5STACK_CORE2
-//#include "BoardM5stackCore2.h"
+#include "BoardM5stackCore2.h"
 #endif // BOARD_M5STACK_CORE2
 
 #include "config.h"
