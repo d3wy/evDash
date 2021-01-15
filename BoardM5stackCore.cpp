@@ -1,7 +1,7 @@
 #include "BoardInterface.h"
 #include "Board320_240.h"
 #include "BoardM5stackCore.h"
-#include <M5Stack.h>
+//#include <M5Stack.h>
 
 /**
   Init board
@@ -33,7 +33,7 @@ void BoardM5stackCore::initBoard() {
  */
 void BoardM5stackCore::mainLoop() {
 
-  M5.update();
+ // M5.update();
   Board320_240::mainLoop();
 }
 
@@ -43,7 +43,7 @@ void BoardM5stackCore::mainLoop() {
 void BoardM5stackCore::initDisplay() {
   
   // initialize the M5Stack object
-  M5.begin();
+ // M5.begin();
 }
 
 /**
@@ -52,11 +52,11 @@ void BoardM5stackCore::initDisplay() {
 void BoardM5stackCore::displayMessage(const char* row1, const char* row2) {
 
   // Must draw directly, without sprite (due to psramFound check)
-  M5.Lcd.fillScreen(TFT_BLACK);
+/*  M5.Lcd.fillScreen(TFT_BLACK);
   M5.Lcd.setTextDatum(ML_DATUM);
   M5.Lcd.setTextColor(TFT_WHITE, TFT_BLACK);
   M5.Lcd.setFreeFont(&Roboto_Thin_24);
   M5.Lcd.setTextDatum(BL_DATUM);
   M5.Lcd.drawString(row1, 0, 240 / 2, GFXFF);
-  M5.Lcd.drawString(row2, 0, (240 / 2) + 30, GFXFF);
+  M5.Lcd.drawString(row2, 0, (240 / 2) + 30, GFXFF);*/
 }

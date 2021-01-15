@@ -269,7 +269,7 @@ void Board320_240::drawBigCell(int32_t x, int32_t y, int32_t w, int32_t h, const
     posx = (x * 80) + 5;
     posy = ((y + h) * 60) - 32;
     sprintf(tmpStr3, "-%01.01f", liveData->params.cumulativeEnergyDischargedKWh - liveData->params.cumulativeEnergyDischargedKWhStart);
-    sprSetFreeFont(&Roboto_Thin_24);
+    sprSetFreeFont("Roboto_Thin_24");
     sprSetTextDatum(TL_DATUM);
     sprDrawString(tmpStr3, posx, posy, GFXFF);
 
@@ -281,7 +281,7 @@ void Board320_240::drawBigCell(int32_t x, int32_t y, int32_t w, int32_t h, const
     // Main number - kwh on roads, amps on charges
     posy = (y * 60) + 24;
     sprSetTextColor(fgColor, bgColor);
-    sprSetFreeFont(&Orbitron_Light_32);
+    sprSetFreeFont("Orbitron_Light_32");
     sprDrawString(text, posx, posy, 7);
 
   } else {
@@ -289,7 +289,7 @@ void Board320_240::drawBigCell(int32_t x, int32_t y, int32_t w, int32_t h, const
     // All others 1x1 cells
     sprSetTextDatum(MC_DATUM);
     sprSetTextColor(fgColor, bgColor);
-    sprSetFreeFont(&Orbitron_Light_24);
+    sprSetFreeFont("Orbitron_Light_24");
     posx = (x * 80) + (w * 80 / 2) - 3;
     posy = (y * 60) + (h * 60 / 2) + 4;
     sprDrawString(text, posx, posy, (w == 2 ? 7 : GFXFF));
@@ -467,7 +467,7 @@ void Board320_240::drawSceneSpeed() {
   sprDrawString(tmpStr3, 200, posy, 7);
 
   // Bottom 2 numbers with charged/discharged kWh from start
-  sprSetFreeFont(&Roboto_Thin_24);
+  sprSetFreeFont("Roboto_Thin_24");
   sprSetTextColor(TFT_WHITE, TFT_BLACK);
   posx = 5;
   posy = 5;
@@ -503,7 +503,7 @@ void Board320_240::drawSceneSpeed() {
   // Battery "cold gate" detection - red < 15C (43KW limit), <25 (blue - 55kW limit), green all ok
   sprFillCircle(290, 60, 25, (liveData->params.batTempC >= 15) ? ((liveData->params.batTempC >= 25) ? TFT_DARKGREEN2 : TFT_BLUE) : TFT_RED);
   sprSetTextColor(TFT_WHITE, (liveData->params.batTempC >= 15) ? ((liveData->params.batTempC >= 25) ? TFT_DARKGREEN2 : TFT_BLUE) : TFT_RED);
-  sprSetFreeFont(&Roboto_Thin_24);
+  sprSetFreeFont("Roboto_Thin_24");
   sprSetTextDatum(MC_DATUM);
   sprintf(tmpStr3, "%01.00f", liveData->celsius2temperature(liveData->params.batTempC));
   sprDrawString(tmpStr3, 290, 60, GFXFF);
@@ -511,7 +511,7 @@ void Board320_240::drawSceneSpeed() {
   sprFillRect(210, 40, 40, 40, (liveData->params.brakeLights) ? TFT_RED : TFT_BLACK);
 
   // Soc%, bat.kWh
-  sprSetFreeFont(&Orbitron_Light_32);
+  sprSetFreeFont("Orbitron_Light_32");
   sprSetTextColor(TFT_WHITE, TFT_BLACK);
   sprSetTextDatum(TR_DATUM);
   sprintf(tmpStr3, "%01.00f%%", liveData->params.socPerc);
@@ -585,7 +585,7 @@ void Board320_240::drawSceneHud() {
     tftFillRect(0, 70, 50, 140, batColor);
     tftFillRect(15, 60, 20, 10, batColor);
     tftSetTextColor(TFT_WHITE, batColor);
-    tftSetFreeFont(&Roboto_Thin_24);
+    tftSetFreeFont("Roboto_Thin_24");
     tftSetTextDatum(MC_DATUM);
     sprintf(tmpStr3, "%01.00f", liveData->celsius2temperature(liveData->params.batTempC));
     tftDrawString(tmpStr3, 25, 180, GFXFF);
@@ -1086,7 +1086,7 @@ void Board320_240::showMenu() {
   liveData->menuVisible = true;
   sprFillSprite(TFT_BLACK);
   sprSetTextDatum(TL_DATUM);
-  sprSetFreeFont(&Roboto_Thin_24);
+  sprSetFreeFont("Roboto_Thin_24");
 
   // Page scroll
   uint8_t visibleCount = (int)(tftHeight() / sprFontHeight());
@@ -1316,7 +1316,7 @@ void Board320_240::redrawScreen() {
   if (!testDataMode && liveData->settings.headlightsReminder == 1 && liveData->params.forwardDriveMode &&
       !liveData->params.headLights && !liveData->params.autoLights) {
     sprFillSprite(TFT_RED);
-    sprSetFreeFont(&Orbitron_Light_32);
+    sprSetFreeFont("Orbitron_Light_32");
     sprSetTextColor(TFT_WHITE, TFT_RED);
     sprSetTextDatum(MC_DATUM);
     sprDrawString("! LIGHTS OFF !", 160, 120, GFXFF);

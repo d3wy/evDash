@@ -42,7 +42,7 @@ void BoardM5stackCore2::mainLoop() {
 void BoardM5stackCore2::initDisplay() {
   
   // initialize the M5Stack object
-  M5.begin();
+  //M5.begin();
 }
 
 /**
@@ -51,11 +51,11 @@ void BoardM5stackCore2::initDisplay() {
 void BoardM5stackCore2::displayMessage(const char* row1, const char* row2) {
 
   // Must draw directly, without sprite (due to psramFound check)
-  M5.Lcd.fillScreen(TFT_BLACK);
+  /*M5.Lcd.fillScreen(TFT_BLACK);
   M5.Lcd.setTextDatum(ML_DATUM);
   M5.Lcd.setTextColor(TFT_WHITE, TFT_BLACK);
   M5.Lcd.setFreeFont(&Roboto_Thin_24);
   M5.Lcd.setTextDatum(BL_DATUM);
   M5.Lcd.drawString(row1, 0, 240 / 2, GFXFF);
-  M5.Lcd.drawString(row2, 0, (240 / 2) + 30, GFXFF);
+  M5.Lcd.drawString(row2, 0, (240 / 2) + 30, GFXFF);*/
 }

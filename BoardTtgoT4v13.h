@@ -55,7 +55,7 @@ class BoardTtgoT4v13 : public Board320_240 {
     void tftSetTextSize(uint8_t size) override;
     int16_t tftDrawString(const char *string, int32_t x, int32_t y, uint8_t font) override;
     int16_t tftDrawString(const String& string, int32_t x, int32_t y, uint8_t font) override;
-    void tftSetFreeFont(const GFXfont *f = NULL) override;
+    void tftSetFreeFont(String fontName) override;
     int16_t sprFontHeight(void) override;
     void sprFillSprite(uint32_t color) override;
     void sprFillRect(int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) override;
@@ -70,7 +70,7 @@ class BoardTtgoT4v13 : public Board320_240 {
     void sprSetTextSize(uint8_t size) override;
     int16_t sprDrawString(const char *string, int32_t x, int32_t y, uint8_t font) override;
     int16_t sprDrawString(const String& string, int32_t x, int32_t y, uint8_t font) override;
-    void sprSetFreeFont(const GFXfont *f = NULL) override;
+    void sprSetFreeFont(String fontName) override;
     void displaySprite() override;
 };
 
