@@ -20,8 +20,8 @@
 ////////////////////////////////////////////////////////////
 
 // Boards
-#define BOARD_TTGO_T4
-//#define BOARD_M5STACK_CORE
+//#define BOARD_TTGO_T4
+#define BOARD_M5STACK_CORE
 //#define BOARD_M5STACK_CORE2
 
 ////////////////////////////////////////////////////////////
@@ -51,14 +51,15 @@
 #include "CarBmwI3.h"
 
 // Board, Car, Livedata (params, settings)
-BoardInterface* board;
-CarInterface* car;
-LiveData* liveData;
+BoardInterface *board;
+CarInterface *car;
+LiveData *liveData;
 
 /**
   Setup device
 */
-void setup(void) {
+void setup(void)
+{
 
   // Serial console
   syslog = new LogSerial();
@@ -69,7 +70,8 @@ void setup(void) {
   liveData->initParams();
 
   // Turn off serial console
-  if (liveData->settings.serialConsolePort == 255) {
+  if (liveData->settings.serialConsolePort == 255)
+  {
     syslog->println("Serial console disabled...");
     syslog->flush();
     syslog->end();
@@ -90,27 +92,28 @@ void setup(void) {
   board->initBoard();
 
   // Init selected car interface
-  switch (liveData->settings.carType) {
-    case CAR_KIA_ENIRO_2020_39:
-    case CAR_KIA_ENIRO_2020_64:
-    case CAR_HYUNDAI_KONA_2020_39:
-    case CAR_HYUNDAI_KONA_2020_64:
-      car = new CarKiaEniro();
-      break;
-    case CAR_HYUNDAI_IONIQ_2018:
-      car = new CarHyundaiIoniq();
-      break;
-    case CAR_KIA_NIRO_PHEV:
-      car = new CarKiaNiroPhev();
-      break;
-    case CAR_RENAULT_ZOE:
-      car = new CarRenaultZoe();
-      break;
-    case CAR_BMW_I3_2014:
-      car = new CarBmwI3();
-      break;
-    default:
-      car = new CarKiaDebugObd2();
+  switch (liveData->settings.carType)
+  {
+  case CAR_KIA_ENIRO_2020_39:
+  case CAR_KIA_ENIRO_2020_64:
+  case CAR_HYUNDAI_KONA_2020_39:
+  case CAR_HYUNDAI_KONA_2020_64:
+    car = new CarKiaEniro();
+    break;
+  case CAR_HYUNDAI_IONIQ_2018:
+    car = new CarHyundaiIoniq();
+    break;
+  case CAR_KIA_NIRO_PHEV:
+    car = new CarKiaNiroPhev();
+    break;
+  case CAR_RENAULT_ZOE:
+    car = new CarRenaultZoe();
+    break;
+  case CAR_BMW_I3_2014:
+    car = new CarBmwI3();
+    break;
+  default:
+    car = new CarKiaDebugObd2();
   }
 
   car->setLiveData(liveData);
@@ -130,6 +133,7 @@ void setup(void) {
 /**
   Main loop
 */
-void loop() {
+void loop()
+{
   board->mainLoop();
 }
