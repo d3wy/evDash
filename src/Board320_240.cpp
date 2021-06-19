@@ -2588,6 +2588,11 @@ void Board320_240::mainLoop()
   // Read data from BLE/CAN
   commInterface->mainLoop();
 
+  if (liveData->settings.wifiEnabled == 1)
+  {
+    reconnectWifi();
+  }
+
   // Reconnect CAN bus if no response for 5s
   if (liveData->settings.commType == 1 && liveData->params.currentTime - liveData->params.lastCanbusResponseTime > 5 && commInterface->checkConnectAttempts())
   {
@@ -2643,6 +2648,18 @@ void Board320_240::syncTimes(time_t newTime)
 bool Board320_240::skipAdapterScan()
 {
   return isButtonPressed(pinButtonMiddle) || isButtonPressed(pinButtonLeft) || isButtonPressed(pinButtonRight);
+}
+
+/**
+    Reconnect WIFI if not connected
+*/
+void Board320_240::reconnectWifi()
+{
+  if ((WiFi.status() != WL_CONNECTED) && liveData->params.currentTime - liveData->params.wifiLastReconnectAttempt > 300) {
+    syslog->print("Wifi not connected - Reconnecting");
+    WiFi.reconnect();
+  }
+  liveData->params.wifiLastReconnectAttempt = liveData->params.currentTime;
 }
 
 /**

@@ -23,6 +23,8 @@ void LiveData::initParams()
   params.sim800l_enabled = false;
   params.sim800l_lastOkReceiveTime = 0;
   params.sim800l_lastOkSendTime = 0;
+  // WiFi
+  params.wifiLastReconnectAttempt = 0;
   // SD card
   params.sdcardInit = false;
   params.sdcardRecording = false;

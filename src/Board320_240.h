@@ -78,6 +78,8 @@ public:
   // SD card
   bool sdcardMount() override;
   void sdcardToggleRecording() override;
+  // WiFi
+  void reconnectWifi();
   // GPS
   void initGPS();
   void syncGPS();
