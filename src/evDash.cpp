@@ -52,6 +52,25 @@ CarInterface *car;
 LiveData *liveData;
 
 /**
+  Hex to dec (1-2 byte values, signed/unsigned)
+  For 4 byte change int to long and add part for signed numbers
+*/
+double hexToDecNew(String hexString, uint8_t bytes, bool signedNum)
+{
+  long range;
+  double decValue = strtol(hexString.c_str(), NULL, 16);
+  if (signedNum)
+  {
+    range = 1 << (bytes * 8);
+    if (decValue > (range - 1) / 2)
+      decValue -= range;
+  }
+  if (bytes < 1 || bytes > 4)
+    return -1;
+  else
+    return decValue;
+}
+/**
   Setup device
 */
 void setup(void)
@@ -168,6 +187,70 @@ void setup(void)
   syslog->println("compare      ... compare buffers");
   syslog->println("test     ... test handler");
   syslog->println("__________________________________________________");
+
+  syslog->println("CHECKING...");
+  //
+  String hex = "FF";
+  uint8_t num = 1;
+  if (liveData->hexToDec(hex, num, false) != hexToDecNew(hex, num, false))
+  {
+    syslog->print("DIFF UNSIGNED ");
+    syslog->println(hex);
+  }
+  if (liveData->hexToDec(hex, num, true) != hexToDecNew(hex, num, true))
+  {
+    syslog->print("DIFF SIGNED ");
+    syslog->println(hex);
+  }
+  ///
+  hex = "FFFF";
+  num = 2;
+  if (liveData->hexToDec(hex, num, false) != hexToDecNew(hex, num, false))
+  {
+    syslog->print("DIFF UNSIGNED ");
+    syslog->println(hex);
+  }
+  if (liveData->hexToDec(hex, num, true) != hexToDecNew(hex, num, true))
+  {
+    syslog->print("DIFF SIGNED ");
+    syslog->println(hex);
+  }
+  ///
+  hex = "FFFFFF";
+  num = 3;
+  if (liveData->hexToDec(hex, num, false) != hexToDecNew(hex, num, false))
+  {
+    syslog->print("DIFF UNSIGNED ");
+    syslog->println(hex);
+  }
+  if (liveData->hexToDec(hex, num, true) != hexToDecNew(hex, num, true))
+  {
+    syslog->print("DIFF SIGNED ");
+    syslog->println(hex);
+  }
+  ///
+  hex = "FFAABBCC";
+  num = 4;
+  if (liveData->hexToDec(hex, num, false) != hexToDecNew(hex, num, false))
+  {
+    syslog->print("DIFF UNSIGNED ");
+    syslog->print(liveData->hexToDec(hex, num, false));
+    syslog->print(" vs ");
+    syslog->print(hexToDecNew(hex, num, false));
+    syslog->print(" | ");
+    syslog->println(hex);
+  }
+
+  if (liveData->hexToDec(hex, num, true) != hexToDecNew(hex, num, true))
+  {
+    syslog->print("DIFF SIGNED ");
+    syslog->print(liveData->hexToDec(hex, num, true));
+    syslog->print(" vs ");
+    syslog->print(hexToDecNew(hex, num, true));
+    syslog->print(" | ");
+    syslog->println(hex);
+  }
+  ///
 }
 
 /**
