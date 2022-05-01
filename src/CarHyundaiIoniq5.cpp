@@ -326,6 +326,16 @@ void CarHyundaiIoniq5::parseRowMerged()
         liveData->params.chargingGraphHeaterTempC[int(liveData->params.socPerc)] = liveData->params.batHeaterC;
         liveData->params.chargingGraphWaterCoolantTempC[int(liveData->params.socPerc)] = liveData->params.coolingWaterTempC;
       }
+      //Charging ON, AC/DC
+      liveData->params.getValidResponse = true;
+      tempByte = liveData->hexToDecFromResponse(48, 50, 1, false); // bit 5 = DC; bit 6 = AC;
+      liveData->params.chargerACconnected = (bitRead(tempByte, 6) == 1);
+      liveData->params.chargerDCconnected = (bitRead(tempByte, 5) == 1);
+      liveData->params.chargingOn = (liveData->params.chargerACconnected || liveData->params.chargerDCconnected) && ((tempByte & 0xf) >= 5) && ((tempByte & 0xf) <= 9);
+      if (liveData->params.chargingOn)
+      {
+        liveData->params.lastChargingOnTime = liveData->params.currentTime;
+      }
     }
     // BMS 7e4
     if (liveData->commandRequest.equals("220102") && liveData->responseRowMerged.substring(12, 14) == "FF")
@@ -412,16 +422,16 @@ void CarHyundaiIoniq5::parseRowMerged()
       liveData->params.batHeaterC = liveData->hexToDecFromResponse(52, 54, 1, true);
       liveData->params.bmsUnknownTempB = liveData->hexToDecFromResponse(82, 84, 1, true);
 
-      // Charging ON, AC/DC
-      liveData->params.getValidResponse = true;
-      tempByte = liveData->hexToDecFromResponse(48, 50, 1, false); // bit 5 = DC; bit 6 = AC;
-      liveData->params.chargerACconnected = (bitRead(tempByte, 6) == 1);
-      liveData->params.chargerDCconnected = (bitRead(tempByte, 5) == 1);
-      liveData->params.chargingOn = (liveData->params.chargerACconnected || liveData->params.chargerDCconnected) && ((tempByte & 0xf) >= 5) && ((tempByte & 0xf) <= 9);
-      if (liveData->params.chargingOn)
-      {
-        liveData->params.lastChargingOnTime = liveData->params.currentTime;
-      }
+//       Charging ON, AC/DC
+//      liveData->params.getValidResponse = true;
+//      tempByte = liveData->hexToDecFromResponse(48, 50, 1, false); // bit 5 = DC; bit 6 = AC;
+//      liveData->params.chargerACconnected = (bitRead(tempByte, 6) == 1);
+//      liveData->params.chargerDCconnected = (bitRead(tempByte, 5) == 1);
+//      liveData->params.chargingOn = (liveData->params.chargerACconnected || liveData->params.chargerDCconnected) && ((tempByte & 0xf) >= 5) && ((tempByte & 0xf) <= 9);
+//      if (liveData->params.chargingOn)
+//      {
+//        liveData->params.lastChargingOnTime = liveData->params.currentTime;
+//      }
 
       // log 220105 to sdcard
       tmpStr = liveData->currentAtshRequest + '/' + liveData->commandRequest + '/' + liveData->responseRowMerged;
